@@ -44,6 +44,24 @@ Examples:
 - "What is the average age of my roster?" → call `listMyOrganizationsTeams` → `SELECT AVG(s."AGE") FROM stat.player_stats_pivoted s JOIN public.player p ON p.id = s."PLAYER_ID" WHERE p.team_id IN (...)`
 - "Compare Pedri to the midfielders on my roster" → call `listMyOrganizationsTeams` → filter midfielders on those teams, then SELECT comparison columns for both Pedri and the resolved midfielders
 
+## Step 2a: Identify a specific named player by ID — never match a player by name in SQL
+
+When a prompt names a **specific player** (e.g. "compare Alexander Isak and Darwin Nunez", "what is Saka's fit score", "Pedri's contract"), do **not** identify them by matching `first_name` / `last_name` in SQL — `ILIKE`, `IN (...)`, and `=` are all **accent-sensitive**, so a query for "Darwin Nunez" silently misses the player stored as "Darwin **Núñez**". QA flagged exactly this regression.
+
+Resolve each named player to their **id** first, then filter the stats query by id:
+
+1. Call **`searchPlayers`** with the name exactly as the user gave it (e.g. `"Darwin Nunez"`). It folds diacritics **server-side** (via `f_unaccent`), so unaccented input matches accented records every time. Take the top result's `id` (verify `currentClub` / `currentLeague` when the name could be ambiguous, as in the player-search skill).
+2. Filter your query by that id — **never** by name:
+   ```sql
+   SELECT p.first_name, p.last_name, s."TEAM_STYLE_FIT", s."CONTRACT_EXPIRES"
+   FROM stat.player_stats_pivoted s
+   JOIN public.player p ON p.id = s."PLAYER_ID"
+   WHERE s."PLAYER_ID" IN ('<isak-uuid>'::uuid, '<nunez-uuid>'::uuid)
+   ```
+3. If `searchPlayers` returns no match for a name, tell the user that player wasn't found — do **not** fall back to an `ILIKE` / `IN` name query (it will keep missing accented names).
+
+This applies only to **player identification**. `ILIKE` on **team** and **league** names (Steps 8b–8c) is fine — those resolvers/queries already handle their own disambiguation.
+
 ## Step 3: Key Tables Reference
 
 The three most important tables for player analytics:
@@ -109,7 +127,7 @@ Follow these rules for every query:
 3. **Default LIMIT 10**: Always add `LIMIT 10` unless the user requests a different count.
 4. **Only SELECT queries**: No INSERT, UPDATE, DELETE, or DDL.
 5. **Cast UUIDs explicitly**: `WHERE id = 'value'::uuid`.
-6. **Use ILIKE for text matching**: `WHERE t.name ILIKE '%Arsenal%'`.
+6. **Use ILIKE for text matching of TEAM / LEAGUE names only**: `WHERE t.name ILIKE '%Arsenal%'`. For a **specific named player**, do NOT match `first_name`/`last_name` with `ILIKE`/`IN`/`=` — they're accent-sensitive and miss diacritics (e.g. "Nunez" ≠ "Núñez"). Resolve the player via `searchPlayers` → id and filter on `s."PLAYER_ID"` (Step 2a).
 7. **Use foreignKeys from schema for JOIN paths** between regular tables.
 8. **For JSONB columns**: Use `->` for object access and `->>` for text extraction. Check `uniqueValues` from the schema for filterable column values.
 
@@ -153,12 +171,14 @@ LIMIT 20
 
 ### Player Comparison
 
+Resolve each named player to their id via `searchPlayers` first (Step 2a), then filter by id — **not** by `last_name` (accent-sensitive, misses names like "Núñez"):
+
 ```sql
 SELECT p.first_name, p.last_name, s."FIT_SCORE", s."TIME_DECAYED_GPR",
        s."AGE", s."CURRENT_CLUB", s."GENERAL_POSITION"
 FROM stat.player_stats_pivoted s
 JOIN public.player p ON p.id = s."PLAYER_ID"
-WHERE p.last_name IN ('Salah', 'Saka', 'Foden')
+WHERE s."PLAYER_ID" IN ('<salah-uuid>'::uuid, '<saka-uuid>'::uuid, '<foden-uuid>'::uuid)
 ```
 
 ## Step 8a: Team-level aggregates — team GPR / team strength
@@ -394,7 +414,8 @@ This is the only correct path for goal counts. `listSeasonProviderMetrics` is si
 6. **Do not rename tables.** The scouting table is `public.scout_report`, NOT `public.scouting_report`. Copy table names exactly from the schema.
 7. **Never answer a per-player scout-report question with SQL — use `organizationScoutReports`.** Counting or listing one player's scout reports over `public.scout_report` over-reports what the user can see (the table is org-scoped, not visibility-scoped); use `organizationScoutReports(filter:{search:<player name>})` and read its `totalCount` (and `edges` to list) instead (see Step 8b). SQL over `public.scout_report` is only for org-wide scout-activity aggregates, and even then must join by id (never `data->>'playerName'`) and filter `WHERE sr.archived_at IS NULL AND sr.parent_report_id IS NULL AND sr.processed_data IS NOT NULL` (plus the org scope), or a raw `COUNT(*)` over-counts archived, child/duplicate, and unprocessed rows.
 8. **Do not silently resolve ambiguous leagues.** "Championship", "Premier League", and "Serie A" map to multiple leagues across countries — disambiguate per Step 8c before answering.
-9. **`SELECT DISTINCT` + `ORDER BY` must agree.** Postgres requires every `ORDER BY` expression to also appear in the `SELECT` list when `DISTINCT` is used (otherwise: "for SELECT DISTINCT, ORDER BY expressions must appear in select list"). Either add the ordering column to the `SELECT`, drop `DISTINCT`, or use `GROUP BY` — don't emit a `SELECT DISTINCT ... ORDER BY <unselected column>` query.
+9. **Never identify a specific named player by name in SQL.** `WHERE p.last_name ILIKE '%Nunez%'` (or `= 'Nunez'`, or `IN ('Nunez')`) is accent-sensitive and silently misses the stored "Núñez" — this is exactly the regression QA caught. Resolve the player with `searchPlayers` (diacritic-folding) and filter on `s."PLAYER_ID"` instead (Step 2a).
+10. **`SELECT DISTINCT` + `ORDER BY` must agree.** Postgres requires every `ORDER BY` expression to also appear in the `SELECT` list when `DISTINCT` is used (otherwise: "for SELECT DISTINCT, ORDER BY expressions must appear in select list"). Either add the ordering column to the `SELECT`, drop `DISTINCT`, or use `GROUP BY` — don't emit a `SELECT DISTINCT ... ORDER BY <unselected column>` query.
 
 ## Step 10: Execute Query
 
