@@ -21,6 +21,14 @@ claude plugin marketplace add https://github.com/geminisportsai/ask-gemini-plugi
 claude plugin install ask-gemini@ask-gemini
 ```
 
+**From the Claude Code App:** in the **Code** tab, enter the prompt:
+
+> run the following commands
+> `claude plugin marketplace add https://github.com/geminisportsai/ask-gemini-plugin`
+> `claude plugin install ask-gemini@ask-gemini`
+
+Then **quit and reopen the app** for the plugin to load.
+
 **In Cowork:** ⚠️ **Not working yet.** Cowork currently can't add a custom GitHub
 marketplace — it fails with _"Could not connect to the marketplace host"_
 ([anthropics/claude-code#28125](https://github.com/anthropics/claude-code/issues/28125),

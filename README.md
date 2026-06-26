@@ -22,6 +22,16 @@ claude plugin marketplace add https://github.com/geminisportsai/ask-gemini-plugi
 claude plugin install ask-gemini@ask-gemini
 ```
 
+### From the Claude Code App
+
+In the **Code** tab, enter the prompt:
+
+> run the following commands
+> `claude plugin marketplace add https://github.com/geminisportsai/ask-gemini-plugin`
+> `claude plugin install ask-gemini@ask-gemini`
+
+Then **quit and reopen the app** for the plugin to load.
+
 ### In Cowork (desktop app)
 
 ⚠️ **Not working yet.** Cowork currently can't add a custom GitHub marketplace —
