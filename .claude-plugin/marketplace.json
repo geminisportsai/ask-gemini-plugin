@@ -1,0 +1,16 @@
+{
+  "name": "ask-gemini",
+  "owner": { "name": "Gemini Sports AI" },
+  "metadata": {
+    "description": "Ask Gemini — football scouting & analytics assistant plugin",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "ask-gemini",
+      "source": "./plugins/ask-gemini",
+      "description": "Scouting & analytics skills + remote MCP server connection. Override the MCP endpoint with ASK_GEMINI_MCP_URL (defaults to production).",
+      "category": "productivity"
+    }
+  ]
+}
