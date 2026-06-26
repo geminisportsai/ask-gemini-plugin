@@ -27,5 +27,5 @@ claude plugin install ask-gemini@ask-gemini
 
 `.mcp.json` **currently defaults to staging**. To target another environment, set
 `ASK_GEMINI_MCP_URL` before launching Claude Code (e.g. the production gateway
-`https://jqvleomk6d.execute-api.us-east-1.amazonaws.com/mcp`). The MCP server
+`https://gql.geminisports.io/mcp`). The MCP server
 requires OAuth on first use.

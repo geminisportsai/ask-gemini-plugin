@@ -34,12 +34,12 @@ nested under "Create plugin".)
 ## MCP endpoint
 
 The MCP connector **currently defaults to staging**
-(`https://eojlfn3czf.execute-api.us-east-1.amazonaws.com/mcp`). Override it for
+(`https://gql.staging.geminisports.io/mcp`). Override it for
 another environment by setting `ASK_GEMINI_MCP_URL` before launching Claude Code,
 e.g.:
 
 ```
-ASK_GEMINI_MCP_URL=https://jqvleomk6d.execute-api.us-east-1.amazonaws.com/mcp   # production
+ASK_GEMINI_MCP_URL=https://gql.geminisports.io/mcp   # production
 ASK_GEMINI_MCP_URL=https://gql.dev.geminisports.io/mcp                          # dev
 ```
 
