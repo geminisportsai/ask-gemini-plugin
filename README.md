@@ -24,24 +24,28 @@ claude plugin install ask-gemini@ask-gemini
 
 ### In Cowork (desktop app)
 
-Customize → **Plugins** → under **Personal plugins** click **`+`** → **Create
-plugin** → **Add marketplace**, then paste
-`https://github.com/geminisportsai/ask-gemini-plugin` and **Sync**. The
-**ask-gemini** plugin then appears under Personal plugins — click **Install**.
+⚠️ **Not working yet.** Cowork currently can't add a custom GitHub marketplace —
+it fails with _"Could not connect to the marketplace host"_
+([anthropics/claude-code#28125](https://github.com/anthropics/claude-code/issues/28125),
+open). Until that's fixed, use the **Claude Code CLI** method above. Once it's
+resolved, the Cowork path will be: Customize → **Plugins** → **Personal plugins**
+**`+`** → **Create plugin** → **Add marketplace** → paste
+`https://github.com/geminisportsai/ask-gemini-plugin` → **Sync** → **Install**.
 (The curated **Directory** does not list custom repos; "Add marketplace" is
 nested under "Create plugin".)
 
 ## MCP endpoint
 
 The MCP connector **currently defaults to staging**
-(`https://gql.staging.geminisports.io/mcp`). Override it for
-another environment by setting `ASK_GEMINI_MCP_URL` before launching Claude Code,
-e.g.:
+(`https://gql.staging.geminisports.io/mcp`). Override it for another environment
+by setting `ASK_GEMINI_MCP_URL` before launching Claude Code, e.g.:
 
 ```
-ASK_GEMINI_MCP_URL=https://gql.geminisports.io/mcp   # production
-ASK_GEMINI_MCP_URL=https://gql.dev.geminisports.io/mcp                          # dev
+ASK_GEMINI_MCP_URL=https://gql.dev.geminisports.io/mcp   # dev
 ```
+
+> **TODO (production):** `https://gql.geminisports.io/mcp` is not live yet — the
+> production MCP endpoint comes up with the first production deploy.
 
 The MCP server requires OAuth — you'll be prompted to authorize the first time an
 ask-gemini tool runs.
