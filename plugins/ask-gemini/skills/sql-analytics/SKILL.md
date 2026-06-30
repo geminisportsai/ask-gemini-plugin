@@ -384,11 +384,26 @@ If exactly one team matches, proceed without asking. If zero match, tell the use
 
 When the user asks how good a player is at a specific **skill** ("shooting ability", "dribbling", "passing", "aerial ability") or to **compare** players on a skill, the primary source is the numeric categorical scores, not scout reports. Scout reports are qualitative colour, available for only a few players, and must not be the sole basis for a skill comparison.
 
-**Use the `getPlayerSeasonCategoricalScores` tool for skill/ability questions and comparisons — not SQL.** Resolve each player to a `playerId` with `searchPlayers`, then call `getPlayerSeasonCategoricalScores(playerId)`. It returns the **full** categorical-score suite per season — finishing, shot location, shot placement, dribbling, passing, carrying, defending, goalkeeping, etc., each with `global` / `positional` (and transformed) variants. This is the only source that has every family.
+**Read the categorical scores from `stat.player_stats_pivoted` with `executeSqlQuery`.** Resolve each player's id with `searchPlayers` first (accent-safe — see Step 2a), then `SELECT` the relevant `*_CATEGORICAL_SCORE` columns for those ids. These are the numeric skill ratings (roughly 0–110; values above 100 are normal). Bring in scout-report notes only as a supplement when they exist.
 
-**"Shooting" is not a single column or family.** A player's shooting ability is made up of the **finishing**, **shot location**, and **shot placement** categorical scores. Present those (a short shooting profile, e.g. finishing + shot placement + shot location, plus an overall read) — do **not** invent a `SHOOTING_GLOBAL_CATEGORICAL_SCORE` / `SHOOTING_*` column; none exists anywhere.
+**Map the skill the user named to the REAL column family — never invent a column from the skill word.** The categorical families that exist in the pivoted view are:
 
-**Do not build skill/ability comparisons from SQL on `stat.player_stats_pivoted`.** That view carries only a **subset** of categorical families — `SHOT_LOCATION_*`, `PASSING_*`, `DRIBBLING_TRANS_*`, `CARRYING_TRANS_*`, and the `GK_*` scores. It has **no** `SHOOTING_*`, `FINISHING_*`, or `SHOT_PLACEMENT_*` columns, so a SQL-only shooting/finishing comparison fails on a missing column. SQL over the pivoted view stays correct for GPR, Fit Score, valuation, age, position, and contract data; for the categorical skill scores use the tool above. Bring in scout-report notes only as a supplement when they exist.
+- **shooting ability** → `"SHOT_LOCATION_GLOBAL_CATEGORICAL_SCORE"` and `"SHOT_LOCATION_POSITIONAL_CATEGORICAL_SCORE"`. This **is** the shooting score — present it to the user as their "Shooting Score" (Global / Positional).
+- **passing** → `"PASSING_GLOBAL_CATEGORICAL_SCORE"` / `"PASSING_POSITIONAL_CATEGORICAL_SCORE"`
+- **dribbling** → `"DRIBBLING_TRANS_GLOBAL_CATEGORICAL_SCORE"`
+- **carrying** → `"CARRYING_TRANS_GLOBAL_CATEGORICAL_SCORE"`
+- **goalkeeping** → the `"GK_*_CATEGORICAL_SCORE"` columns
+
+There is **NO** `SHOOTING_*`, `FINISHING_*`, or `SHOT_PLACEMENT_*` column — "shooting ability" is measured by the **`SHOT_LOCATION`** categorical score. Do **not** synthesize a `SHOOTING_GLOBAL_CATEGORICAL_SCORE` (or any `<skill-word>_…_CATEGORICAL_SCORE`) from the name of the skill; that exact mistake — querying a non-existent `SHOOTING_GLOBAL_CATEGORICAL_SCORE` — is what made QA prompt #11 fail. Confirm the exact column name against `getSqlSchema` before querying. Example shooting comparison:
+
+```sql
+SELECT p.first_name, p.last_name,
+       s."SHOT_LOCATION_GLOBAL_CATEGORICAL_SCORE"     AS shooting_global,
+       s."SHOT_LOCATION_POSITIONAL_CATEGORICAL_SCORE" AS shooting_positional
+FROM stat.player_stats_pivoted s
+JOIN public.player p ON p.id = s."PLAYER_ID"
+WHERE s."PLAYER_ID" IN ('<rashford-uuid>'::uuid, '<lewandowski-uuid>'::uuid)
+```
 
 **Categorical-score column naming — only two qualifiers exist.** Every categorical score column is `<FAMILY>_[TRANS_]<GLOBAL|POSITIONAL>_CATEGORICAL_SCORE`. The ONLY scope qualifiers are `GLOBAL` and `POSITIONAL` (each optionally prefixed with `TRANS_`). There is **no** `REGIONAL`, `LOCAL`, `NATIONAL`, or other variant — do not invent them. Examples that exist: `"DRIBBLING_TRANS_GLOBAL_CATEGORICAL_SCORE"`, `"PASSING_GLOBAL_CATEGORICAL_SCORE"`, `"PASSING_POSITIONAL_CATEGORICAL_SCORE"`, `"SHOT_LOCATION_GLOBAL_CATEGORICAL_SCORE"`. The full column list is large, so confirm exact names against `getSqlSchema` before querying.
 
