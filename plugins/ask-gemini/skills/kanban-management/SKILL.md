@@ -9,9 +9,15 @@ description: >
 
 Use this skill when the user wants to view, create, or manage their kanban scouting boards.
 
+## User-facing vocabulary
+
+"Kanban" is our internal word for these, and it appears in the tool names only. To the
+user they are **Pipelines**. Say "pipeline" in every reply — never "kanban", "kanban
+board" or "Kanban Boards". Never show a board's ID to the user; refer to it by name.
+
 ## Step 1: List Existing Boards
 
-Call `listMyKanbanBoards` to retrieve the user's current kanban boards. Present them so the user can choose which board to work with, or decide to create a new one.
+Call `listMyKanbanBoards` to retrieve the user's current kanban boards. Present them to the user **by name only**, so they can choose which pipeline to work with or decide to create a new one. Do not list IDs, timestamps, or every record returned.
 
 ## Step 2: Find the Player — and verify it's the right one
 

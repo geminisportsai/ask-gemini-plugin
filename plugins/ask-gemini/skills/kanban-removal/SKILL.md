@@ -9,9 +9,20 @@ description: >
 
 Use this skill when the user wants to remove a player from one of their kanban scouting boards.
 
+## User-facing vocabulary
+
+"Kanban" is our internal word for these, and it appears in the tool names only. To the
+user they are **Pipelines**. Say "pipeline" in every reply — never "kanban", "kanban
+board" or "Kanban Boards". Never show a board's ID to the user; refer to it by name.
+
 ## Step 1: List Existing Boards
 
-Call `listMyKanbanBoards` to retrieve the user's current kanban boards. Present them so the user can identify which board to remove a player from. If the user has already specified the board, proceed directly.
+Call `listMyKanbanBoards` to retrieve the user's current kanban boards, and resolve the target to **exactly one board ID** — Step 2 needs an ID, not a name. Present the pipelines to the user **by name only**.
+
+- User named a pipeline and it matches exactly one board → proceed with that board's ID.
+- User named one that matches several, or none → say so and ask which they mean. Do not guess.
+- User named none → ask which pipeline to remove from.
+- User already supplied an unambiguous board ID → use it directly.
 
 ## Step 2: List Cards on the Target Board
 

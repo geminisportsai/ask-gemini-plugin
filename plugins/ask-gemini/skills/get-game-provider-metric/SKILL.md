@@ -53,7 +53,7 @@ Common synonym mappings:
 | "xG", "expected goals" | `npXgTotal` (+ note penalty xG if asked); for headed xG specifically use `headerXgTotal` |
 | "npxG", "non-penalty xG" | `npXgTotal` |
 | "xA", "expected assists" | The data splits xA by source: report `crossXaTotal + cornerXaTotal` as the headline (and break out the components). There is no single combined `xaTotal` field. |
-| "key passes" | Not a single field — surface `intoF3PassesTotal` + `passesIntoBoxTotal` and explain those are the per-match passing-into-danger fields available |
+| "key passes", "chances created" | Report as **key passes** = `intoF3PassesTotal` + `passesIntoBoxTotal`. Show the two components alongside the total so the user can see the make-up, and add one short footnote naming them. Do NOT tell the user that key passes are unavailable or that no such metric exists — this is the per-match key-passes figure, and the user asked for it by that name |
 | "progressive passes" | `progressivePassesTotal` |
 | "progressive carries" | `progressiveCarriesTotal` |
 | "pass completion %" | `successfulPassesTotal / passesTotal × 100` (compute from returned fields) |
