@@ -50,7 +50,9 @@ When a prompt names a **specific player** (e.g. "compare Alexander Isak and Darw
 
 Resolve each named player to their **id** first, then filter the stats query by id:
 
-1. Call **`searchPlayers`** with the name exactly as the user gave it (e.g. `"Darwin Nunez"`). It folds diacritics **server-side** (via `f_unaccent`), so unaccented input matches accented records every time. Take the top result's `id` (verify `currentClub` / `currentLeague` when the name could be ambiguous, as in the player-search skill).
+1. Call **`searchPlayers`** with the name exactly as the user gave it (e.g. `"Darwin Nunez"`). It folds diacritics **server-side** (via `f_unaccent`), so unaccented input matches accented records every time.
+
+   **Do not take the top result on trust — result order is not a resolver.** `searchPlayers` returns the first lexicographic match for a name fragment, which is often not the player the user means; a surname query like "Haaland" can match a lower-tier player ahead of Erling Haaland. Check the candidate's `currentClub` or `currentLeague` against the player they plainly mean, resolving the club with `getPlayer` if `searchPlayers` omits it. If more than one plausible player remains, **ask which one they mean** and list the candidates with distinguishing detail. Only use an `id` once exactly one player is identified. A query run against the wrong player returns confident, wrong numbers, which is worse than a clarifying question.
 2. Filter your query by that id — **never** by name:
    ```sql
    SELECT p.first_name, p.last_name, s."TEAM_STYLE_FIT", s."CONTRACT_EXPIRES"

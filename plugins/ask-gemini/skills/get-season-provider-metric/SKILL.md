@@ -59,7 +59,15 @@ If the user names a metric not in this table, pass through their phrasing to `li
 
 ### Advanced StatsBomb-360 metrics live in a different tool
 
-A set of advanced per-player season metrics are **not** in `listSeasonProviderMetrics`. For these, call **`listAdvancedCompetitionStats`** (by `playerId`, optionally scoped to a league+season — resolve a named league via `listMyOrganizationsLeagues`; pass league and season together or neither):
+A set of advanced per-player season metrics are **not** in `listSeasonProviderMetrics`. For these, call **`listAdvancedCompetitionStats`** by `playerId`, optionally scoped to a league and season.
+
+**Scoping rule — a requested season must never be silently dropped.** League and season go together or not at all, so asking for a season alone leaves you with a league to find:
+
+1. If the user named both a league and a season, resolve the league via `listMyOrganizationsLeagues` and pass both IDs.
+2. If the user named **only a season**, resolve the player's own league first — via `listMyOrganizationsLeagues`, or the player's `currentLeague` — and pass that league with the requested season. Dropping to an unscoped call would answer about a different span than the one asked for.
+3. If exactly one league cannot be identified, **ask the user which competition they mean.** Do not make an unscoped call and present the result as if it covered their season.
+
+The metrics available through it:
 
 - **total xA / expected assists** (open-play `OP_XA_90`), **npxG + xA** (`NPXGXA_90`)
 - **key passes / chances created** (`KEY_PASSES_90`, open-play `OP_KEY_PASSES_90`)

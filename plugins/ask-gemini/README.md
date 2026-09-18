@@ -43,8 +43,9 @@ resolved, the Cowork path will be: Customize → Plugins → Personal plugins **
 `ASK_GEMINI_MCP_URL` before launching Claude Code — e.g. dev
 `https://gql.dev.geminisports.io/mcp`. The MCP server requires OAuth on first use.
 
-> **TODO (production):** `https://gql.geminisports.io/mcp` is not live yet — the
-> production MCP endpoint comes up with the first production deploy.
+> **Production:** `https://gql.geminisports.io/mcp` is live and, like the other
+> environments, requires OAuth — it answers an unauthenticated request with
+> `401` and a bearer challenge pointing at its OAuth metadata.
 
 ---
 
