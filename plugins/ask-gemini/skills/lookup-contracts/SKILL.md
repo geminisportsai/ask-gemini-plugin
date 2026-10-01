@@ -84,6 +84,8 @@ Do not:
 
 Note: querying BOTH document types (Step 4) is the expected default, not a prohibited "silent switch." Only emit the verbatim halt above when **both** `CONTRACT` and `TRANSFER_AGREEMENT` return `[]`. If either document returns clauses, answer from the merged set.
 
+Roster questions (Step 7): never emit this halt — an empty result for one player goes on the "not extracted" list and you continue with the next player.
+
 ## Step 6: "Not applicable" results are meaningful — surface them verbatim
 
 When a clause exists with a body of `"Not applicable"`, `"N/A"`, `"None"`, or similar, that is a **deliberately negotiated absence** — the clause was discussed and excluded. Surface it explicitly:
@@ -109,12 +111,14 @@ When the user phrases the question in terms of their own roster ("does anyone on
 
    Do not broaden to "all players" and do not fall back to SQL.
 
-3. **Enumerate the roster.** For each `team_id` returned, enumerate the team's players using whatever player-listing path the resolved tool set provides (a team-roster / team-players listing tool if present). Then fan out `getPlayerContractClauses` over **each** resolved player ID — not just the first — check each player's contract against the user's constraint, and **name the players who satisfy it** (and state when none do). **State how many players you checked** so the user knows the answer covered the whole roster (e.g. "I checked all 26 players on your roster; 2 have a no-trade clause: …"). If the user's prompt already lists specific player names ("does Rice or Saka have a no-trade clause?"), resolve each via `searchPlayers` and fan out over those IDs instead.
-4. **If the resolved tool set genuinely lacks any roster-enumeration path** (only `listMyOrganizationsTeams` + name-keyed `searchPlayers`, no team-players listing), then list and check the roster players you CAN resolve, name who satisfies the constraint among them, and explicitly state the limitation — do not answer generically. Use:
+3. **List the roster.** Call `filterPlayers({ filter: { teamIds: [<team_ids>] }, first: 50 })` once, with every `team_id` from step 1. The result is the roster: M players, each with an ID — do not guess names or use `searchPlayers` for this. If the user's prompt already lists specific player names ("does Rice or Saka have a no-trade clause?"), resolve each via `searchPlayers` and check only those instead.
+4. **Check as many roster players as fit.** Clause data comes one player at a time and a turn has 10 tool calls in total — after the teams and roster calls, you can check at most 8 players. For a roster question, check one document type per player — `CONTRACT` (the playing contract) by default; `TRANSFER_AGREEMENT` when the clause usually lives there (sell-on, buyback, right of first refusal) — instead of the both-documents default in Step 4 above, which is for a single named player. Go down the roster in the order `filterPlayers` returned it and keep calling `getPlayerContractClauses` until the roster is done or you are out of steps. If the first call returns a permission error, stop and say clause data is owner-only — don't spend the remaining steps on the same error.
+5. **Answer with exactly what you checked.** Start with "I checked N of M players on your roster — I checked their playing contract only" (or "their transfer agreement only"), where N = players whose document you fetched and M = `totalCount` from the result (if `hasNextPage` is true, also say you listed the first 50). Then:
+   - name every checked player who has the clause, with the clause text — or say none of the checked players' [playing contracts / transfer agreements] include it;
+   - list checked players whose [playing contract / transfer agreement] has not been extracted (the fetched document came back empty) — that is not the same as having no contract;
+   - name the players you did not check, and say "ask me about any of them and I'll check their contracts".
 
-   > Based on the players I can resolve on your roster, the following have a no-trade clause: [names]. Note: I may not be able to enumerate every player on your roster in one shot — if you tell me which players to check (e.g., "check Rice, Saka, and Ødegaard"), I can confirm the rest.
-
-   Do not fabricate a roster list. Do not partially answer based on the few players you can resolve without explicitly stating that scope.
+   Never say or imply the whole roster was checked when it was not, and never answer generically ("some players may have…"). Do not fabricate a roster list.
 
 ## Step 8: Present the result
 
@@ -130,7 +134,7 @@ For multiple clauses on one player, render a table:
 | Buyback Clause | Not applicable | — |
 | Sell-On Percentage | 15% to Hale End (former training club) | Active |
 
-For a fan-out across multiple players (Step 7), group by player:
+For a fan-out across multiple players (Step 7), group by player — and when the user asked about one clause type, show only that matching clause per player, not every clause:
 
 > **Bukayo Saka**
 > - Release Clause: £75m...
@@ -149,6 +153,6 @@ Never mention `documentType` enum values, GraphQL field names, or the resolver n
 1. **Don't pass synonym strings as resolver args.** `getPlayerContractClauses` doesn't accept a clause-name filter. Always fetch the full list and filter client-side via the synonym table.
 2. **Don't treat empty results as zero clauses.** Empty array = document not extracted = the verbatim Step 5 response. Be honest about the difference.
 3. **Don't conflate "Not applicable" with missing data.** A clause body of "Not applicable" is meaningful — surface it explicitly.
-4. **Always check both documents before halting.** Query both `CONTRACT` and `TRANSFER_AGREEMENT` and merge; only emit the empty-result halt when BOTH are empty. A clause absent from the playing contract (e.g. sell-on %, buyback) is frequently present in the transfer agreement.
+4. **For a single named player, always check both documents before halting.** Query both `CONTRACT` and `TRANSFER_AGREEMENT` and merge; only emit the empty-result halt when BOTH are empty. A clause absent from the playing contract (e.g. sell-on %, buyback) is frequently present in the transfer agreement.
 5. **Don't use `executeSqlQuery`.** No SQL fallback for clause data.
 6. **Don't fabricate clause names.** If the user names a clause not in the synonym table and the returned list has no match, say so plainly — don't synthesize a plausible-sounding clause body.
