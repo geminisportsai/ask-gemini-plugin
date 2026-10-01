@@ -13,6 +13,15 @@ Use this skill when the user wants a **per-match** provider metric for a specifi
 
 If the user asks for season totals or per-90 averages, use `get_season_provider_metric` instead.
 
+## KEY PASSES — season value only
+
+Key passes (also "chances created") exist only as a **season** figure — see Step 2 for how to fetch `playerSeasonKeyPasses90`. When the user asks for key passes, even "in his last 5 matches":
+
+- Answer with the season value (per 90, with `playerSeasonMinutes` when present) and one line saying key passes are recorded per season, not per match.
+- Do not name, list or count any match in the key-passes line — not "in his last 5", not "including his matches against …". The season figure is not a summary of particular matches, and a match list risks including fixtures that have not been played.
+- Say "this season" unless a tool result gave the season's name, and name the competition only if a tool result gave it. If the value is from an earlier season that no tool named, say "the most recent season with data".
+- If key passes are the only metric asked for, skip Step 4 — no `listGameProviderMetrics` call is needed. If other metrics are asked alongside (e.g. xG), still show their per-match table per Step 4, and put key passes on a separate season line beneath it that names no matches.
+
 ## TOP-LEVEL RULE — read this before anything else
 
 You are **forbidden** from reporting any per-match metric value (xG, xA, passes, minutes, goals, anything specific to one fixture) **unless every single number in your response is sourced from a `listGameProviderMetrics` row returned this turn**.
@@ -100,7 +109,7 @@ If the named league isn't in the resolver's results, tell the user that league i
 
 ## Step 4: Call `listGameProviderMetrics` — this step is mandatory
 
-After resolving the player and any specific match IDs you need, you **MUST** call `listGameProviderMetrics`. Reporting a per-match metric value (xG, xA, etc.) without a corresponding `listGameProviderMetrics` call is **hallucination** — every number you surface to the user must come from a returned row of this tool, not from your prior knowledge of the player.
+After resolving the player and any specific match IDs you need, you **MUST** call `listGameProviderMetrics` (exception: a key-passes-only question skips this step — see KEY PASSES). Reporting a per-match metric value (xG, xA, etc.) without a corresponding `listGameProviderMetrics` call is **hallucination** — every number you surface to the user must come from a returned row of this tool, not from your prior knowledge of the player.
 
 Two call shapes:
 
@@ -158,7 +167,7 @@ For a single match, a one-line answer is enough: "Saka vs Arsenal on 2026-02-08:
 
 ## Common pitfalls
 
-1. **Don't report metrics without calling `listGameProviderMetrics`.** This is the single biggest failure mode. Every per-match number you surface must trace to a row this tool returned. If you haven't called it, you must not report a value — say "I couldn't retrieve per-match data" and stop.
+1. **Don't report metrics without calling `listGameProviderMetrics`** (except key passes — see KEY PASSES). This is the single biggest failure mode. Every per-match number you surface must trace to a row this tool returned. If you haven't called it, you must not report a value — say "I couldn't retrieve per-match data" and stop.
 2. **Don't proceed with the wrong player.** Single-name `searchPlayers` queries frequently return a lower-tier player with the same surname. If the result's club is inconsistent with the user's implied context, re-search with the full name; if still wrong, ask the user.
 3. **Don't return season totals when asked for a match.** If the user names an opponent or "last N games", you must resolve specific matches before calling the metric tool. The one exception is key passes, which exist only per season — show the season value as described in Step 2.
 4. **Don't average a series silently.** "Last 5 games xG" should show all 5 values; if you only show the mean, the user can't tell whether one outlier match drove it.
