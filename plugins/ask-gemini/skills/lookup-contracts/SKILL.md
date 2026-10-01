@@ -66,7 +66,7 @@ getPlayerContractClauses(playerId: <resolved-id>, documentType: TRANSFER_AGREEME
 
 A player can have **two** contract documents — the playing `CONTRACT` and the `TRANSFER_AGREEMENT` — and a given clause may live in either (sell-on %, buyback, and ROFR can live in either the `TRANSFER_AGREEMENT` or the playing contract). Unless the user's phrasing clearly pins the answer to one document, **call the resolver for BOTH document types and merge the results**, then filter the combined clause list client-side. When the same canonical clause appears in both documents, surface both and label which document each came from.
 
-The resolver returns the full list of clauses extracted from the document, each with `{ name, body, status, savedAt }`. **The parser uses canonical names**, so synonym strings ("buyout", "ROFR") are not valid filter arguments — there is no name-filter parameter on the resolver. Always fetch the full list, then filter client-side by checking each returned `name` against the canonical name(s) from your Step 2 synonym mapping (case-insensitive substring match is the safe pattern).
+The resolver returns the full list of clauses extracted from the document, each with `{ name, body, status, savedAt }`. **The parser uses canonical names**, so synonym strings ("buyout", "ROFR") are not valid filter arguments — `getPlayerContractClauses` has no name-filter parameter; for a roster question, see Step 7 (`listRosterContractClauses` does filter by name). Always fetch the full list, then filter client-side by checking each returned `name` against the canonical name(s) from your Step 2 synonym mapping (case-insensitive substring match is the safe pattern).
 
 If the user named one clause, find the matching row and surface it. If the user asked for "all clauses" or didn't name a specific one, render the full list.
 
@@ -84,7 +84,7 @@ Do not:
 
 Note: querying BOTH document types (Step 4) is the expected default, not a prohibited "silent switch." Only emit the verbatim halt above when **both** `CONTRACT` and `TRANSFER_AGREEMENT` return `[]`. If either document returns clauses, answer from the merged set.
 
-Roster questions (Step 7): never emit this halt — an empty result for one player goes on the "not extracted" list and you continue with the next player.
+Roster questions (Step 7): never emit this halt — a player with no document on file goes on the "no contract on file" list and the rest of the answer stands.
 
 ## Step 6: "Not applicable" results are meaningful — surface them verbatim
 
@@ -100,25 +100,25 @@ Do **not**:
 
 The distinction matters: "Not applicable" tells the user the clause was negotiated out (a positive datum); the empty array from Step 5 tells the user the document hasn't been processed (an unknown).
 
-## Step 7: "My roster" scope — fan-out across team_ids' players
+## Step 7: "My roster" scope — one roster-wide call
 
-When the user phrases the question in terms of their own roster ("does anyone on my roster have a no-trade clause?", "anyone on my team…", "any of my players…", "which of my players have buyback clauses?"), the answer must come from checking the **whole roster**, not a single player. Resolving one player and answering from that alone is the exact defect to avoid — "does anyone on my roster have a no-trade clause?" requires checking **every** player on the roster, then aggregating. The answer must **name the specific players who satisfy the constraint** (and say "none" when none do) — do NOT answer generically (e.g., "some players may have…", "I can't tell without more info") when the roster can be enumerated, and do NOT answer from one player. Follow the standard My-Roster fan-out pattern:
+When the user phrases the question in terms of their own roster ("does anyone on my roster have a no-trade clause?", "anyone on my team…", "any of my players…", "which of my players have buyback clauses?"), the answer must come from checking the **whole roster**, not a single player. Resolving one player and answering from that alone is the exact defect to avoid — "does anyone on my roster have a no-trade clause?" requires checking **every** player on the roster, then aggregating. The answer must **name the specific players who satisfy the constraint** (and say "none" when none do) — do NOT answer generically (e.g., "some players may have…", "I can't tell without more info") when the roster can be enumerated, and do NOT answer from one player. Use the roster-wide tool:
 
-1. Call `listMyOrganizationsTeams`.
-2. **Empty-resolver halt** — if the result is empty, stop and respond with:
+1. **One call.** Call `listRosterContractClauses` once with `clauseNameContains` set to the clause the user asked about — the canonical term and its common synonyms, always including the canonical names from the Step 2 table (matching is a case-insensitive substring of the clause name), e.g. `["no-trade", "no trade", "no-transfer"]`, `["release", "buyout"]`, `["buyback"]`, `["sell-on"]`, `["right of first refusal", "first right", "rofr"]`. Omit `documentTypes` so both the playing contract and the transfer agreement are read. Don't loop `getPlayerContractClauses` over the roster. The result has `rosterCount` (players on the roster), `checkedCount` (players with a document on file) and `players[]`: the players with a matching clause, plus the players with no document on file (`hasContract` and `hasTransferAgreement` both false, `clauses: []`). Checked players without a match are not listed. If the user wants every clause for the whole roster (no clause named), ask which clause they're after — an unfiltered call returns every clause of every player and can be cut off.
+2. **Empty roster** — if `rosterCount` is 0, stop and respond with:
 
-   > Your organization doesn't have any teams configured, so I can't identify your roster. Please add a team to your organization in the settings and try again.
+   > I couldn't find any active players on your roster, so there are no contracts to check. If you expected players here, check your organization's teams and roster in the settings.
 
    Do not broaden to "all players" and do not fall back to SQL.
 
-3. **List the roster.** Call `filterPlayers({ filter: { teamIds: [<team_ids>] }, first: 50 })` once, with every `team_id` from step 1. The result is the roster: M players, each with an ID — do not guess names or use `searchPlayers` for this. If the user's prompt already lists specific player names ("does Rice or Saka have a no-trade clause?"), resolve each via `searchPlayers` and check only those instead — then your first sentence names whose contracts you checked (e.g. "I checked Rice's and Saka's playing contracts"), and steps 4–5 below don't apply.
-4. **Check as many roster players as fit.** Clause data comes one player at a time and a turn has 10 steps in total (a step that calls no tool still counts) — after the teams and roster calls, and keeping one step to write the answer, you can check at most 7 players. For a roster question, check each player's `CONTRACT` (the playing contract) for every clause type — including buyback and sell-on, which on real rosters are often in the playing contract — instead of the both-documents default in Step 4 above, which is for a single named player. Go down the roster in the order `filterPlayers` returned it and call `getPlayerContractClauses` once per player. Do not stop early: keep calling until you have checked 7 players or the whole roster, even after you have found matches — the user asked about the roster, not for the first few hits. If the first call returns a permission error, stop and say clause data is owner-only — don't spend the remaining steps on the same error.
-5. **Answer with exactly what you checked.** Your first sentence must be "I checked N of M players on your roster — I checked their playing contract only (not transfer agreements)." — before any "Yes" or match list — where N = players whose document you fetched and M = `totalCount` from the result (if `hasNextPage` is true, also say you listed the first 50). Then:
-   - name every checked player who has the clause, with the clause text — or say none of the checked players' playing contracts include it;
-   - list checked players whose playing contract has not been extracted (the fetched document came back empty) — that is not the same as having no contract;
-   - name the players you did not check, and say "ask me about any of them and I'll check their contracts".
+3. **Permission error** — the tool is owner-only. If it returns a permission error, say clause data is owner-only for this organization; don't retry or fall back to per-player calls.
+4. **Answer.** Your first sentence must be "I checked <checkedCount> of <rosterCount> players on your roster (the players with a contract or transfer agreement on file)." — before any "Yes" or match list. Then:
+   - name every player with a matching clause, with the clause text (a `body` of "Not applicable" / "N/A" means the clause was negotiated out — not a match);
+   - if no player matched, say none of the checked players' contracts include it in the clauses extracted so far;
+   - list the players with no contract on file — they were not checked.
 
-   Never say or imply the whole roster was checked when it was not, and never answer generically ("some players may have…"). Do not fabricate a roster list.
+   Never say "nobody has it" when some players have no contract on file, and never answer generically ("some players may have…").
+5. **Named players.** If the user's prompt lists specific players ("does Rice or Saka have a no-trade clause?"), don't use the roster call: resolve each via `searchPlayers`, check both documents with `getPlayerContractClauses` as in Step 4, and your first sentence must be "I checked Rice's and Saka's contracts" (with their names), followed by who has the clause.
 
 ## Step 8: Present the result
 
@@ -134,7 +134,7 @@ For multiple clauses on one player, render a table:
 | Buyback Clause | Not applicable | — |
 | Sell-On Percentage | 15% to Hale End (former training club) | Active |
 
-For a fan-out across multiple players (Step 7), group by player — and when the user asked about one clause type, show only that matching clause per player, not every clause:
+For several players (Step 7, or named players), group by player — and when the user asked about one clause type, show only that matching clause per player, not every clause:
 
 > **Bukayo Saka**
 > - Release Clause: £75m...
