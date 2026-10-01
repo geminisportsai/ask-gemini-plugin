@@ -14,7 +14,7 @@ Use this skill whenever the user asks a question that requires querying the spor
 
 Call `getSqlSchema` to retrieve the full database schema. This returns tables, columns with data types, foreign key relationships, unique values for filterable columns, and query construction guidelines.
 
-You must call this tool before writing any SQL query to confirm available tables and column names.
+You must call this tool before writing any SQL query to confirm available tables and column names (Step 8b-region uses no SQL and never calls `getSqlSchema`).
 
 ## Step 2: Resolve "My Roster" / "My Team" References
 
@@ -92,6 +92,7 @@ Available columns (all UPPERCASE, must be double-quoted):
 | `"PRIMARY_POSITION"` | Specific position role |
 | `"CURRENT_CLUB"` | Current club name |
 | `"CURRENT_LEAGUE"` | Current league name |
+| `"LEAGUE_COUNTRY"` | Country of the player's **current** league (from `public.league.country`). Spellings are inconsistent (`England`/`england`, `Korea, South`/`Korea  South`, `Türkiye`/`Turkiye`). Never use it for a scout-report region question — every report already carries its `region` (Step 8b-region). |
 | `"PLAYER_VALUATION"` | Market valuation (use for "value" queries) |
 | `"NATIONALITY"` | Player nationality |
 | `"MINUTES_TOTAL"` | Total minutes played |
@@ -315,7 +316,7 @@ WHERE sr.archived_at IS NULL          -- exclude archived
   AND sr.organization_id = '<org-id>'::uuid   -- org scope (as already used elsewhere)
 ```
 
-Never use SQL over `public.scout_report` to answer how many reports a single player has — that is the per-player case above and must go through `organizationScoutReports`.
+Never use SQL over `public.scout_report` to answer how many reports a single player has — that is the per-player case above and must go through `organizationScoutReports`. The fallback also never applies to a question asked **by region** ("reports from South America", "players in Scandinavia") — that always goes through Step 8b-region.
 
 **Scout-report honesty — only claim a report exists when `organizationScoutReports` actually returns one.** Only tell the user a player has a scouting report (or quote a "scout score") when `organizationScoutReports(filter:{search:<name>}).totalCount` is one or more for that player. If it is zero, say the player has **no** scout report — do not soften it, do not infer one. In particular, **never infer the existence of a scout report from the presence of a GPR, GPM, fit score, or any other metric.** A GPR is computed for almost every tracked player and says nothing about whether a human scout report exists. The two are unrelated data sources — having a GPR does not mean a scout report was written, and a player with a strong GPR routinely has zero scout reports. Report exactly what `organizationScoutReports` returns.
 
@@ -337,6 +338,73 @@ How to do it scoped:
 4. If the user adds attribute constraints not present in scout-report data (position/role like "moppers", valuation "< 10M", age, league), first resolve the scouted `playerId` set via steps 1–2, then apply those attribute filters with SQL **restricted to that id set** (`WHERE p.id IN ('<id1>','<id2>', …)`) or via `filterPlayers`. The "we've scouted them" / "our scouts recommend" predicate always comes from `organizationScoutReports`; SQL only supplies the non-scout attributes for those ids. **Never** add `public.scout_report` to a `FROM`/`JOIN`.
 
 A player with zero reports the user can see simply won't appear in `organizationScoutReports` — never re-introduce them from SQL.
+
+## Step 8b-region: Scout reports by REGION — `organizationScoutReports` with `filter.regions` and `regionCounts`
+
+Some questions ask about scout reports by **region** rather than by player:
+
+- "Show me scout reports from South America."
+- "How many reports did we file on players in Scandinavia?"
+- "Which players have we scouted in Scandinavia?"
+- "Which region have our scouts covered most?"
+
+**Region or nationality?** "Reports from / in <region>", "players in <region>" and "scouted in <region>" mean the **league region** — this step. A nationality or demonym ("Brazilian players", "South American players", "players born in Norway") is not something this step can answer: the region filter is the player's current league, not their nationality. Say so, and offer the league-region answer instead. If a question could be read either way, use the league region and say that is the interpretation you used.
+
+Every report `organizationScoutReports` returns carries a `region`: the **FM24 scouting region of the player's current league country**, set by the backend (null when the player has no league or the country is outside the FM24 table). The query filters by it (`filter.regions`, several names combined with OR) and counts by it (`regionCounts`: `{ region, count }` per region over the same filters and visibility, ignoring pagination; the counts add up to `totalCount`). It is permission-scoped to what this user may see. There is no SQL in this step.
+
+### The region names
+
+Read the status instruction at the top of this block first and follow it. Map the user's words onto the region names in this table.
+
+<!-- scouting-regions:start -->
+<!-- Generated from lib/skills/scoutingRegions.ts by `bun run skills:render-regions`. Do not edit by hand. -->
+
+> Source: GD-217 / Notion "Regions for Each Country", Football Manager 2024 (FM24) scouting regions. These are the FM24 scouting regions: a name that is neither a region in this table nor a stem listed below is not one of the FM24 scouting regions — say so and list the regions. Pass region names to `filter.regions` exactly as written in this table.
+
+> The only multi-region names are: South America (= South America (North) + South America (South)). Each is not a region on its own but means all of those regions: answer for all of them together and name the FM24 regions used. Any other area name, including continents such as Africa, Asia or Europe, is not an FM24 scouting region — say so and list the regions.
+
+| Region | Countries (player's current league country) |
+|--------|---------------------------------------------|
+| Central Africa | Cameroon; Central African Republic; Chad; Congo; DR Congo; Equatorial Guinea; Gabon; São Tomé & Príncipe |
+| East Africa | Burundi; Djibouti; Eritrea; Ethiopia; Kenya; Mayotte; Réunion; Rwanda; Somalia; South Sudan; Tanzania; Uganda; Zanzibar |
+| North Africa | Algeria; Egypt; Libya; Morocco; Sudan; Tunisia |
+| Southern Africa | Angola; Botswana; Comoros; Eswatini; Lesotho; Madagascar; Malawi; Mauritius; Mozambique; Namibia; Seychelles; South Africa; Zambia; Zimbabwe |
+| Western Africa | Benin; Burkina Faso; Cape Verde; Côte d'Ivoire; Gambia; Ghana; Guinea; Guinea-Bissau; Liberia; Mali; Mauritania; Niger; Nigeria; Senegal; Sierra Leone; Togo |
+| Central Asia | Kazakhstan; Kyrgyzstan; Tajikistan; Turkmenistan; Uzbekistan |
+| East Asia | China; Chinese Taipei; Guam; Hong Kong; Japan; Macau; Mongolia; North Korea; Northern Marianas; South Korea |
+| Middle East | Bahrain; Iran; Iraq; Israel; Jordan; Kuwait; Lebanon; Oman; Palestine; Qatar; Saudi Arabia; Syria; United Arab Emirates; Yemen |
+| South Asia | Afghanistan; Bangladesh; Bhutan; India; Maldives; Nepal; Pakistan; Sri Lanka |
+| Southeast Asia | Brunei; Cambodia; Indonesia; Laos; Malaysia; Myanmar; Philippines; Singapore; Thailand; Timor-Leste; Vietnam |
+| Central Europe | Austria; Belgium; Czech Republic; Germany; Liechtenstein; Luxembourg; Netherlands; Poland; Slovakia; Switzerland |
+| Eastern Europe | Bulgaria; Hungary; Moldova; Romania; Serbia |
+| North Eastern Europe | Belarus; Estonia; Latvia; Lithuania; Russia; Ukraine |
+| Northern Europe | Denmark; Faroe Islands; Finland; Iceland; Norway; Sweden |
+| South Eastern Europe | Armenia; Azerbaijan; Cyprus; Georgia; Greece; North Macedonia; Turkey |
+| South Europe | Albania; Bosnia and Herzegovina; Croatia; Italy; Kosovo; Malta; Montenegro; San Marino; Slovenia |
+| UK & Ireland | England; Ireland; Northern Ireland; Scotland; Wales |
+| Western Europe | Andorra; France; Gibraltar; Portugal; Spain |
+| Caribbean | Anguilla; Antigua and Barbuda; Aruba; Bahamas; Bermuda; Bonaire; British Virgin Islands; Cayman Islands; Cuba; Curaçao; Dominica; Dominican Republic; Grenada; Guadeloupe; Haiti; Jamaica; Martinique; Montserrat; Puerto Rico; Saint Barthélemy; Saint Kitts and Nevis; Saint Lucia; Saint-Martin; Sint Maarten; St. Vincent & the Grenadines; Trinidad & Tobago; Turks & Caicos Islands; US Virgin Islands |
+| Central America | Belize; Costa Rica; El Salvador; Guatemala; Honduras; Nicaragua; Panama |
+| North America | Canada; Mexico; St. Pierre & Miquelon; United States |
+| Oceania | American Samoa; Australia; Cook Islands; Fiji; Kiribati; Micronesia; New Caledonia; New Zealand; Papua New Guinea; Samoa; Solomon Islands; Tahiti; Tonga; Tuvalu; Vanuatu; Wallis & Futuna Islands |
+| South America (North) | Bolivia; Colombia; Ecuador; French Guiana; Guyana; Peru; Suriname; Venezuela |
+| South America (South) | Argentina; Brazil; Chile; Paraguay; Uruguay |
+<!-- scouting-regions:end -->
+
+### Procedure
+
+1. **Map the region.** Turn the user's phrase into region names from the table above: an exact region, or both halves of a multi-region name — for "South America" pass `regions: ["South America (North)", "South America (South)"]`. If it maps to no region (see the rules below), do not call any tool for it.
+2. **Count — one call.** For "how many reports …" make ONE `organizationScoutReports` call with `filter: { regions: [...] }` and `first: 1`. Its `totalCount` is the exact number of matching reports across all pages; for a multi-region name also give each region's count from `regionCounts`. For "which region have our scouts covered most?" make ONE call with no `regions` filter and `first: 1`, and rank `regionCounts` (a null `region` is "no region": players with no league or a country outside the FM24 table). Add any other filter the user gave (dates, clubs, scouts, `search`) to the same call. Read the number from `totalCount` / `regionCounts` — never page through edges to count, and never add up nodes yourself.
+3. **List.** For "show me reports from …" / "which players have we scouted in …" call `organizationScoutReports` with `filter: { regions: [...] }`, `first: 50` and present each node: `playerName`, `club`, `region`, `overallScore`, `reportTypeName`, `matchDate`, `scoutName`. Say how many there are from `totalCount`. If `pageInfo.hasNextPage` is true, either fetch the next page with `after: pageInfo.endCursor` (when the user asked for all of them) or say "showing [N] of [totalCount]" and offer the rest. If `totalCount` is 0, say this user has no scout reports on players in that region.
+4. **A rejected name.** If the query rejects a region name with an error listing the valid names, retry once with the matching name from that list; if none matches, apply the unknown-region rule below.
+
+### Rules
+
+- Never use SQL, `public.scout_report` or `stat.player_stats_pivoted` for a region question. The report table is org-scoped, not scoped to what this user may see, so it over-counts; the org-wide last-resort SQL fallback in Step 8b does **not** apply to region questions. Never call `getSqlSchema` for a region question — its sample rows are other organizations' data. The reports, their regions and their counts all come from `organizationScoutReports`, and you never copy player or report ids between calls.
+- Every region answer must say that region reflects each player's **current** league country, not the league they were in when the report was written — a player who has since transferred is counted under their current league's region.
+- While the status instruction says region data is not available yet, it overrides everything in this step: do none of the above and do not list any region names.
+- Otherwise, if the user names one of the multi-region names listed above the table (e.g. "South America" → South America (North) + South America (South)), answer for the union of those regions and name the FM24 regions used.
+- If the name matches no FM24 region and no listed multi-region name (e.g. "Scandinavia", or a continent such as "Africa"), say it is not one of the FM24 scouting regions and list all 24 region names from the table. After that list you may add which region contains the countries they meant, but ask before answering for it. Never guess which countries a region contains, and never substitute a similar region.
 
 ## Step 8c: Ambiguous league names — disambiguate before answering
 
@@ -433,7 +501,7 @@ This is the only correct path for goal counts. `listSeasonProviderMetrics` is si
 4. **Do not skip the JOIN for names.** The stats view only has `"PLAYER_ID"`, not names.
 5. **Do not use uncast UUID literals.** Use `'value'::uuid` for UUID comparisons.
 6. **Do not rename tables.** The scouting table is `public.scout_report`, NOT `public.scouting_report`. Copy table names exactly from the schema.
-7. **Never answer a per-player scout-report question with SQL — use `organizationScoutReports`.** Counting or listing one player's scout reports over `public.scout_report` over-reports what the user can see (the table is org-scoped, not visibility-scoped); use `organizationScoutReports(filter:{search:<player name>})` and read its `totalCount` (and `edges` to list) instead (see Step 8b). SQL over `public.scout_report` is only for org-wide scout-activity aggregates, and even then must join by id (never `data->>'playerName'`) and filter `WHERE sr.archived_at IS NULL AND sr.parent_report_id IS NULL AND sr.processed_data IS NOT NULL` (plus the org scope), or a raw `COUNT(*)` over-counts archived, child/duplicate, and unprocessed rows.
+7. **Never answer a per-player scout-report question with SQL — use `organizationScoutReports`.** Counting or listing one player's scout reports over `public.scout_report` over-reports what the user can see (the table is org-scoped, not visibility-scoped); use `organizationScoutReports(filter:{search:<player name>})` and read its `totalCount` (and `edges` to list) instead (see Step 8b). SQL over `public.scout_report` is only for org-wide scout-activity aggregates (never for region questions — Step 8b-region), and even then must join by id (never `data->>'playerName'`) and filter `WHERE sr.archived_at IS NULL AND sr.parent_report_id IS NULL AND sr.processed_data IS NOT NULL` (plus the org scope), or a raw `COUNT(*)` over-counts archived, child/duplicate, and unprocessed rows.
 8. **Do not silently resolve ambiguous leagues.** "Championship", "Premier League", and "Serie A" map to multiple leagues across countries — disambiguate per Step 8c before answering.
 9. **Never identify a specific named player by name in SQL.** `WHERE p.last_name ILIKE '%Nunez%'` (or `= 'Nunez'`, or `IN ('Nunez')`) is accent-sensitive and silently misses the stored "Núñez" — this is exactly the regression QA caught. Resolve the player with `searchPlayers` (diacritic-folding) and filter on `s."PLAYER_ID"` instead (Step 2a).
 10. **`SELECT DISTINCT` + `ORDER BY` must agree.** Postgres requires every `ORDER BY` expression to also appear in the `SELECT` list when `DISTINCT` is used (otherwise: "for SELECT DISTINCT, ORDER BY expressions must appear in select list"). Either add the ordering column to the `SELECT`, drop `DISTINCT`, or use `GROUP BY` — don't emit a `SELECT DISTINCT ... ORDER BY <unselected column>` query.
