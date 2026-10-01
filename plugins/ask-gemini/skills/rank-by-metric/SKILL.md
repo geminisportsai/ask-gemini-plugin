@@ -43,11 +43,11 @@ Resolve any named attributes to IDs before calling the tool, exactly as for `fil
 - role archetypes → `listRoleArchetypes`
 - preferred foot → no lookup; pass `filter.feet` directly as a `PlayerFoot` array (`LEFT` / `RIGHT` / `BOTH`)
 
-Put these into `filter` (`positionIds`, `leagueIds`/`competitionIds`, `teamIds`, `nationalities`, `roleArchetypes`, `feet`, plus `minAge`/`maxAge`, `minValuation`/`maxValuation`, etc.). A cohort with at least one criterion is required.
+Put these into `filter` — any position cohort goes in `primaryPositionIds` (see the role-group table below; players without a recorded primary position are left out, which is expected) — plus `leagueIds`/`competitionIds`, `teamIds`, `nationalities`, `roleArchetypes`, `feet`, plus `minAge`/`maxAge`, `minValuation`/`maxValuation`, etc.). A cohort with at least one criterion is required.
 
 ### Role groups → positions (fixed)
 
-When the user names a role group, set `positionIds` to the IDs (from `listPositions`) of exactly these abbreviations. **Always use exactly the positions in this table for a role group** — never widen or narrow it from run to run, so the same question ranks the same cohort every time. Use only abbreviations `listPositions` actually returns.
+When the user names a role group, set `primaryPositionIds` (not `positionIds`) to the IDs (from `listPositions`) of exactly these abbreviations, so only players whose **primary** position is in the group are ranked. **Always use exactly the positions in this table for a role group** — never widen or narrow it from run to run, so the same question ranks the same cohort every time. Use only abbreviations `listPositions` actually returns.
 
 | Role group the user names | Positions |
 |---|---|
@@ -59,7 +59,9 @@ When the user names a role group, set `positionIds` to the IDs (from `listPositi
 | Wingers | LW, RW |
 | Strikers ("forwards", "centre-forwards", "number 9s") | CF, LCF, RCF, SS |
 
-A side applies to full-backs and wingers only: "left-backs" → LB, LWB; "right-backs" → RB, RWB; "left wingers" → LW; "right wingers" → RW. Wide midfielders (LM, RM) are not in the Wingers group until that is confirmed — don't add them. The position filter matches any position a player is listed at, so a player whose main role is elsewhere can still appear — don't describe the list as "primary position only".
+A side applies to full-backs and wingers only: "left-backs" → LB, LWB; "right-backs" → RB, RWB; "left wingers" → LW; "right wingers" → RW. Wide midfielders (LM, RM) are not in the Wingers group until that is confirmed — don't add them. (`positionIds` matches any position a player lists, so a striker who also lists CAM would join an AM ranking — that is why role groups go in `primaryPositionIds`.)
+
+**Ages:** "U<N>" means under N, so `maxAge` is N−1: "U23" → `maxAge: 22`, "U21" → `maxAge: 20`. "23 or younger" → `maxAge: 23`.
 
 For **footedness**, include `BOTH` alongside the side — a two-footed player can play either foot: **left-footed** → `feet: [LEFT, BOTH]`, **right-footed** → `feet: [RIGHT, BOTH]`.
 
@@ -123,12 +125,12 @@ If the only metric the user named is unavailable, tell them which metrics *are* 
 
 - `first` = the number the user asked for (10 if none).
 - Omit `seasonId` unless the user named a season.
-- Add no filter the user did not ask for — no extra positions, ages, leagues or thresholds. If the user named no cohort at all (the filter would be empty, which the tool rejects), ask which league or position to rank rather than inventing one.
+- Add no filter the user did not ask for — no extra positions, ages, leagues or thresholds — except the default minutes floor under **Minutes** below, which is always applied the same way. If the user named no cohort at all (the filter would be empty, which the tool rejects), ask which league or position to rank rather than inventing one.
 
-**Minutes.** Do not pass `minMinutesPlayed` to set a per-90 sample size: it filters a player's minutes across all seasons, not the season being ranked, so it neither removes small-sample players nor matches "at least 900 minutes this season". There is no season-minutes threshold yet. If the user asks for one, run the ranking without it and say the minutes threshold isn't available yet, rather than approximating it.
+**Minutes.** For any ranking except `NP_XG_TOTAL`, add a season-minutes floor so small-sample players don't top the list: append `{ metric: MINUTES_TOTAL, min: 900 }` to `metricFilters`, alongside any thresholds the user gave — `MINUTES_TOTAL` is minutes in the **ranked season**, and it comes back in each player's metric values. Use the user's number instead when they give one ("min 600 minutes" → `min: 600`). Do not pass `filter.minMinutesPlayed` for this: it is a career total across all seasons.
 
 ## Step 4: Present results
 
-Report the ranked players with the metric value(s) they ranked on (the tool returns them per player). State the season used and that values are per-90 — except `NP_XG_TOTAL` (a season total) and `CROSSING_RATIO` / `PASSING_RATIO` (0–1 ratios). If a threshold filtered the cohort to few/no players, say so plainly.
+Report the ranked players with the metric value(s) they ranked on (the tool returns them per player). Always state the season — by name if you resolved it with `listSeasons`, otherwise "the latest season with data" — and that values are per-90 — except `NP_XG_TOTAL` (a season total) and `CROSSING_RATIO` / `PASSING_RATIO` (0–1 ratios). If a threshold filtered the cohort to few/no players, say so plainly.
 
-For any ranking except `NP_XG_TOTAL`, add one line: "This ranking is not filtered by minutes played this season, so players with few minutes can rank high." Show a player's club only when the tool returned it for that player (`clubName`) — never from memory. Rank results often carry no club; then show none and don't look one up.
+When a minutes floor was applied, say so in one line — "Players with at least <N> minutes in <season>." (the ranked season, named as above) — and show each player's minutes from the metric values. Show a player's club only when the tool returned it for that player (`clubName`) — never from memory. Rank results often carry no club; then show none and don't look one up.
