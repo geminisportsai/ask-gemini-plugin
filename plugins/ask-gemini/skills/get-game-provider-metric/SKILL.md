@@ -1,8 +1,9 @@
 ---
 name: get-game-provider-metric
 description: >
-  Look up a third-party provider metric (xG, xA, key passes, progressive passes,
-  etc.) for a specific match or a small window of matches for a single player.
+  Look up a third-party provider metric (xG, xA, progressive passes, etc.) for a
+  specific match or a small window of matches for a single player (key passes
+  are answered with the season value).
   Use when the user names an opponent, a date, or "last N games".
 ---
 
@@ -14,13 +15,13 @@ If the user asks for season totals or per-90 averages, use `get_season_provider_
 
 ## TOP-LEVEL RULE — read this before anything else
 
-You are **forbidden** from reporting any per-match metric value (xG, xA, key passes, passes, minutes, goals, anything specific to one fixture) **unless every single number in your response is sourced from a `listGameProviderMetrics` row returned this turn**.
+You are **forbidden** from reporting any per-match metric value (xG, xA, passes, minutes, goals, anything specific to one fixture) **unless every single number in your response is sourced from a `listGameProviderMetrics` row returned this turn**.
 
 This rule has no exceptions:
 
 - **If you did not call `listGameProviderMetrics`**, you may not report a per-match value. State that you don't have per-match data and stop.
 - **If `listPlayerMatches` does not include a match against the user's named opponent**, you may not report a per-match value against that opponent. State plainly "I don't see a match against [opponent] in [player]'s available fixtures" and stop. **Do not fabricate a match date from your training knowledge.** Even if you "know" that Erling Haaland played Arsenal on a specific date, that knowledge is not in this turn's tool results, so it is forbidden.
-- **If `listGameProviderMetrics` returns no row for the requested match**, you may not synthesise a value from `bioData`, from the season aggregate, or from your prior knowledge. State that per-match data isn't tracked for that fixture and stop.
+- **If `listGameProviderMetrics` returns no row for the requested match**, you may not synthesise a value from `bioData`, from the season aggregate, or from your prior knowledge. State that per-match data isn't tracked for that fixture and stop. In a "last N" window, skip it instead and continue with the next played match (Step 4).
 
 Violating this rule produces hallucinated answers and is the worst possible failure mode for this skill. When in doubt, refuse with a plain "I don't have that per-match data" sentence — that is always preferable to a fabricated number.
 
@@ -53,7 +54,7 @@ Common synonym mappings:
 | "xG", "expected goals" | `npXgTotal` (+ note penalty xG if asked); for headed xG specifically use `headerXgTotal` |
 | "npxG", "non-penalty xG" | `npXgTotal` |
 | "xA", "expected assists" | The data splits xA by source: report `crossXaTotal + cornerXaTotal` as the headline (and break out the components). There is no single combined `xaTotal` field. |
-| "key passes", "chances created" | **Per-match key passes are not recorded.** Do not label anything else as key passes — a key pass means a pass leading to a shot, which is not what these fields measure. Report `intoF3PassesTotal` and `passesIntoBoxTotal` under their own names (passes into the final third, passes into the box), say in one line that per-match key passes are not tracked, and offer the true season figure from `get_season_provider_metric` (`playerSeasonKeyPasses90`) if they want key passes proper. Do NOT answer that no such metric exists anywhere — it exists per season, just not per match |
+| "key passes", "chances created" | **Key passes are recorded per season, not per match.** Do not label anything else as key passes — a key pass means a pass leading to a shot, which is not what these fields measure. Instead: call `listAdvancedCompetitionStats({ playerId })` and show `playerSeasonKeyPasses90` (key passes per 90) from the row whose `seasonId` and `leagueId` match the `seasonKey` and `competitionKey` of the most recent played match from `listPlayerMatches` (rows are not in date order; if no row matches, use the most recent season available and say which). Name the season/competition only from a tool result (`listSeasons` / `listMyOrganizationsLeagues`); otherwise say "this season". Include `playerSeasonMinutes` when present. Say in one line that key passes are available per season rather than per match. Do not build a "last N" table of stand-in metrics for key passes; if you also show `intoF3PassesTotal` / `passesIntoBoxTotal`, label them by their own names. Never answer that key passes are not tracked — they are, per season |
 | "progressive passes" | `progressivePassesTotal` |
 | "progressive carries" | `progressiveCarriesTotal` |
 | "pass completion %" | `successfulPassesTotal / passesTotal × 100` (compute from returned fields) |
@@ -69,12 +70,19 @@ The match-resolution path depends on how the user phrased the question.
 
 | User phrasing | How to resolve |
 |---|---|
-| "vs [opponent]", "against [opponent]" | Call `listPlayerMatches` for the player, filter to matches where the opponent matches the named club, keep the most recent (or all matches against that opponent if the user said "matches against"). |
+| "vs [opponent]", "against [opponent]" | Call `listPlayerMatches` for the player, filter to matches where the opponent matches the named club, keep the most recent **played** one — dated before the current date, never an upcoming fixture (or all played matches against that opponent if the user said "matches against"). |
 | "in the [date] match", "on [date]" | Call `listPlayerMatches` and filter to the matching date. |
-| "last [N] games / matches" | Call `listPlayerMatches` ordered most-recent-first, take the first N matches. |
-| "last weekend", "last game" | Call `listPlayerMatches` and take the most recent match. |
+| "last [N] games / matches" | Take the N most recent **played** matches — see "Last N means played matches" below. |
+| "last weekend", "last game" | Take the most recent **played** match (dated before the current date) — see below. |
 | "in the [league] this season" without a specific match | This is a season-scope question — switch to `get_season_provider_metric`. |
-| "[opponent] in the [league]" | Resolve the league via `listMyOrganizationsLeagues` (see empty-resolver halt below), then filter `listPlayerMatches` to that league + opponent. |
+| "[opponent] in the [league]" | Resolve the league via `listMyOrganizationsLeagues` (see empty-resolver halt below), then filter `listPlayerMatches` to that league + opponent, keeping played matches only. |
+
+### Last N means played matches
+
+`listPlayerMatches` returns the player's fixtures newest-first **including upcoming fixtures that have not been played yet**, with no played/date filter. A match counts toward "last N" only when its `matchDate` is before the current date given in your instructions. Never list an upcoming fixture in a "last N" table or count it toward N, and never present a future-dated match as played.
+
+- Call `listPlayerMatches({ playerId, first: 30 })` once — enough to cover upcoming fixtures plus N played matches. Do not page `listPlayerMatches` with `after`: its cursor repeats the previous page's last row. If that leaves fewer than N played matches with data and `pageInfo.hasNextPage` is true, make one larger call with `first: 100` instead.
+- Drop every match dated on or after the current date, then walk the rest newest-first.
 
 `listMyOrganizationsLeagues` is paged (20 per page by default): call it with `first: 100` and, while `pageInfo.hasNextPage` is true, call again with `after: <pageInfo.endCursor>`. A league that is not on the first page is not out of scope.
 
@@ -92,12 +100,12 @@ If the named league isn't in the resolver's results, tell the user that league i
 
 ## Step 4: Call `listGameProviderMetrics` — this step is mandatory
 
-After resolving the player and any specific match IDs you need, you **MUST** call `listGameProviderMetrics`. Reporting a per-match metric value (xG, xA, key passes, etc.) without a corresponding `listGameProviderMetrics` call is **hallucination** — every number you surface to the user must come from a returned row of this tool, not from your prior knowledge of the player.
+After resolving the player and any specific match IDs you need, you **MUST** call `listGameProviderMetrics`. Reporting a per-match metric value (xG, xA, etc.) without a corresponding `listGameProviderMetrics` call is **hallucination** — every number you surface to the user must come from a returned row of this tool, not from your prior knowledge of the player.
 
 Two call shapes:
 
 - **Single-match scope** (named opponent / specific date): call `listGameProviderMetrics({ playerId, gameId })` using the gameId resolved from `listPlayerMatches`. This returns one row.
-- **Window scope** ("last N games" or open-ended): call `listGameProviderMetrics({ playerId })` with no `gameId`. The tool returns all per-game rows the player has data for; intersect this with the most-recent N matches from `listPlayerMatches` and present that subset.
+- **Window scope** ("last N games" or open-ended): call `listGameProviderMetrics({ playerId })` with no `gameId`. The tool returns all per-game rows the player has data for. Walk the **played** matches from `listPlayerMatches` newest-first and keep each one that has a row; when a played match has no row, skip it (mention it in one line) and take the next played match, until you have N matches with data or run out of played matches.
 
 Strict rules:
 
@@ -117,7 +125,7 @@ A 0 for xG can mean three very different things:
 
 Handle each:
 
-- **DNP** (no row in `listPlayerMatches` for that fixture, or zero minutes): say so explicitly — "Saka didn't feature against Liverpool on 2026-02-08" — and **exclude the match from per-match metric output**. Don't report a metric value for a match the player didn't play.
+- **DNP** (no row in `listPlayerMatches` for that fixture, or zero minutes): say so explicitly — "Saka didn't feature against Liverpool on 2026-02-08" — and **exclude the match from per-match metric output**. Don't report a metric value for a match the player didn't play. In a "last N" window, a DNP or zero-minute match does not count toward N; list it in the skipped note under the table and take the next played match.
 - **Sub appearance with low minutes** (<25 min): show the metric but include minutes in the same row so the reader can weight it. Example: "vs Chelsea (sub, 14 min): xG 0.02 / xA 0.10".
 - **Started and played meaningful minutes**: surface the value with minutes alongside.
 
@@ -132,23 +140,25 @@ For a window of matches ("last N games"), return a per-match table — not a sin
 | vs Liverpool (H) | 2026-02-08 | 90 | 0.42 | 0.31 |
 | vs Brighton (A) | 2026-02-01 | 78 | 0.18 | 0.04 |
 | vs Chelsea (H) | 2026-01-25 | 14 | 0.02 | 0.10 |
-| vs West Ham (A) | 2026-01-18 | DNP | — | — |
 | vs Forest (H) | 2026-01-11 | 90 | 0.66 | 0.22 |
+| vs Everton (A) | 2026-01-04 | 85 | 0.31 | 0.12 |
 
-If the user explicitly asks for an average ("average xG over his last 5"), compute it from the per-match values, but **only over matches where the player played meaningful minutes** (skip DNPs and explicitly note the denominator). Always show the per-match table alongside the average so the user can see what's in the bucket.
+Skipped: vs West Ham (A), 2026-01-18 — didn't feature / no data.
 
-For a single match, a one-line answer is enough: "Saka vs Arsenal on 2026-02-08: xG **0.42**, xA **0.31**, key passes **4** (90 minutes)."
+If the user explicitly asks for an average ("average xG over his last 5"), compute it from the per-match values, but **only over matches where the player played meaningful minutes** (low-minute sub appearances may be excluded; explicitly note the denominator). Always show the per-match table alongside the average so the user can see what's in the bucket.
+
+For a single match, a one-line answer is enough: "Saka vs Arsenal on 2026-02-08: xG **0.42**, xA **0.31**, passes into the box **4** (90 minutes)."
 
 ## Step 7: Empty / null handling
 
 - `listPlayerMatches` returns no match against the named opponent: tell the user the player hasn't faced that opponent in the data range. Do not return season totals instead.
-- `listGameProviderMetrics` returns nothing for a resolved match: state that the per-match data isn't available for that fixture — do not synthesize a value from the season average.
+- `listGameProviderMetrics` returns nothing for a resolved match: state that the per-match data isn't available for that fixture — do not synthesize a value from the season average. In a "last N" window, take the next played match instead so N matches with data are shown where they exist; say how many you found if fewer than N.
 
 ## Common pitfalls
 
 1. **Don't report metrics without calling `listGameProviderMetrics`.** This is the single biggest failure mode. Every per-match number you surface must trace to a row this tool returned. If you haven't called it, you must not report a value — say "I couldn't retrieve per-match data" and stop.
 2. **Don't proceed with the wrong player.** Single-name `searchPlayers` queries frequently return a lower-tier player with the same surname. If the result's club is inconsistent with the user's implied context, re-search with the full name; if still wrong, ask the user.
-3. **Don't return season totals when asked for a match.** If the user names an opponent or "last N games", you must resolve specific matches before calling the metric tool.
+3. **Don't return season totals when asked for a match.** If the user names an opponent or "last N games", you must resolve specific matches before calling the metric tool. The one exception is key passes, which exist only per season — show the season value as described in Step 2.
 4. **Don't average a series silently.** "Last 5 games xG" should show all 5 values; if you only show the mean, the user can't tell whether one outlier match drove it.
 5. **Don't omit minutes.** A 0.0 xG over 12 minutes is not the same as a 0.0 xG over 90 minutes.
 6. **Don't fabricate DNPs.** If `listPlayerMatches` doesn't return a row for the named fixture, say so — don't invent the match.

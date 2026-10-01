@@ -49,7 +49,7 @@ Also call `getPlayer` if you need the full player record (positions list, team r
 ## Step 3: Get seasonal scores and match history (general profile)
 
 - `getPlayerSeasonCategoricalScores` — season-level categorical scores (attributes) showing how the profile trends across seasons and skill areas. Quote a category score as its bare number — never as "x/100".
-- `listPlayerMatches` — recent appearances: playing time, results, competition level.
+- `listPlayerMatches` — recent appearances: playing time, results, competition level. It lists fixtures newest-first **including upcoming ones**, so a match counts as a recent appearance only when its `matchDate` is before the current date. Never list an upcoming fixture under recent matches; if you mention one, label it "upcoming".
 
 ## Step 4: Read scout reports (required for any scout-opinion phrasing)
 
