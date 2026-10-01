@@ -22,16 +22,22 @@ Every prompt for this intent names at least one player. Call `searchPlayers` fir
 | "How does X fit team Y?" (one team) | `getPlayerTeamFit` | Resolve team Y via `listMyOrganizationsEligibleTeams` (see Step 3), then call with `(playerId, teamId)`. |
 | "Compare X's fit at A vs B" (2 teams) | `getPlayerTeamFit` × 2 | One call per team, present side-by-side. |
 | "How does X fit A, B, C?" (3+ named teams) | `rankTeamsByPlayerFit` with `teamIds` | Resolve all named team IDs first, pass as `teamIds`. Sorted result is convenient. |
-| "What teams does X fit best?" / "Who could I sell X to?" (open-ended) | `rankTeamsByPlayerFit` with `leagueIds` | **Always scope by the org's leagues.** First call `listMyOrganizationsLeagues`, then pass every returned league_id as `leagueIds`. Calling this tool with only `playerId` (no `teamIds`, no `leagueIds`) reliably returns a 500 "query too broad" error, so never call it fully unscoped. |
-| "What [league] teams fit X?" (league-scoped) | `rankTeamsByPlayerFit` with `leagueIds` | Resolve the league via `listMyOrganizationsLeagues`, pass as `leagueIds`. |
+| "What teams does X fit best?" / "Who could I sell X to?" (open-ended) | `rankTeamsByPlayerFit` with `leagueIds` | **Always scope by ALL of the org's leagues.** Collect every league with `listMyOrganizationsLeagues` (see "Getting every league" below), then pass every league_id as `leagueIds`. Do not call this tool fully unscoped (only `playerId`, no `teamIds`, no `leagueIds`) — see pitfall 5. |
+| "What [league] teams fit X?" (league-scoped) | `rankTeamsByPlayerFit` with `leagueIds` | Resolve the league via `listMyOrganizationsLeagues` — read every page (see "Getting every league") — and pass it as `leagueIds`. |
 
 `first` defaults to 10 on `rankTeamsByPlayerFit`. Use a smaller value (e.g., 5) when the user asks for a top-N explicitly ("top 3 teams"). Maximum is 50.
+
+### Getting every league
+
+`listMyOrganizationsLeagues` is **paged** — it returns 20 leagues per page by default, and an organization commonly has more (the big five leagues are often not on the first page). Call it with `first: 100`, and while `pageInfo.hasNextPage` is true, call it again with `after: <pageInfo.endCursor>`. If a result is marked truncated, continue from the `resumeAfterCursor` it gives instead. Use the league_ids from **every** page. Scoring only the first page silently drops whole leagues, so the same question gives different teams depending on how many pages were read.
 
 ## Step 3: Resolve team / league names to IDs before calling the fit tools
 
 - **Named teams** ("Liverpool", "Bayern Munich", "Real Madrid"): call `listMyOrganizationsEligibleTeams` with `search: "Bayern Munich"` and pick the matching team_id from the result. **Do not** use `listMyOrganizationsTeams` for this — that's the narrow list of teams the org actively manages (typically just the user's own club), and most named teams won't be in it. The eligible-teams list covers every team in the leagues the org has added, which is the same scope the fit math operates against.
-- **Named leagues** ("Premier League", "Bundesliga"): call `listMyOrganizationsLeagues` and pick the matching league_id. If the league isn't in the result, it's out of scope for this organization — tell the user, do not silently drop the `leagueIds` filter.
-- **If `listMyOrganizationsEligibleTeams` returns no match for the named team**, tell the user that team isn't in the leagues their organization has added — do not silently substitute a different team or skip the filter.
+  - **Search by the club's full name.** The search matches names, not nicknames or abbreviations — "PSG" finds nothing. Expand a short name before searching: PSG → Paris Saint-Germain, Spurs → Tottenham Hotspur, Man Utd / Man U → Manchester United, Man City → Manchester City, Barça → Barcelona, Bayern → Bayern Munich, Inter → Inter Milan, Atleti → Atlético Madrid, Juve → Juventus, BVB → Borussia Dortmund. If a search still finds nothing, retry once with the other form of the name.
+  - **Pick the senior side in the expected league.** Results are not ranked and include youth, reserve and B sides (U19, U21, II, B) and same-name clubs abroad (a "Liverpool" in Uruguay, "Hotspurs" in Malta). Choose the senior first team in the league the user means — e.g., Liverpool in the Premier League.
+- **Named leagues** ("Premier League", "Bundesliga"): collect every league (see "Getting every league") and pick the matching league_id. If the league isn't in the full list, it's out of scope for this organization — tell the user, do not silently drop the `leagueIds` filter.
+- **If a named team still can't be found** after expanding the name, say so plainly: "I couldn't find a team called '<name>' — try the club's full name (e.g., Paris Saint-Germain)." Do **not** say the team's league isn't covered. Never silently substitute a different team or skip the filter, and still score the teams you did find.
 
 ## Step 4: Handle empty / null results
 
@@ -51,4 +57,5 @@ Every prompt for this intent names at least one player. Call `searchPlayers` fir
 2. **Don't skip player name resolution** — calling `getPlayerTeamFit` with a name instead of an ID will fail. `searchPlayers` first, always.
 3. **Don't default to "all teams"** when the user names specific teams. If they say "fit at Liverpool, Bayern, and PSG" use `rankTeamsByPlayerFit` with `teamIds`, not without — the user wants exactly those three teams scored.
 4. **Don't substitute a different metric** if fit data isn't available. GPR or VAEP are not interchangeable with team-style fit.
-5. **Never call `rankTeamsByPlayerFit` fully unscoped.** A call with only `playerId` (no `teamIds` and no `leagueIds`) reliably 500s with "query too broad". For open-ended "best fit" / "who could I sell to" prompts, resolve the org's leagues with `listMyOrganizationsLeagues` first and pass them as `leagueIds`. If you do hit that 500, **do not** give up or fall back to a generic profile-based answer — call `listMyOrganizationsLeagues` and retry with `leagueIds`.
+5. **Don't call `rankTeamsByPlayerFit` fully unscoped.** A call with only `playerId` (no `teamIds` and no `leagueIds`) has failed with a 500 "query too broad" error in the past and is slower than a scoped call. For open-ended "best fit" / "who could I sell to" prompts, collect **every** league (all pages) and pass them as `leagueIds`. If you do hit a 500, **do not** give up or fall back to a generic profile-based answer — collect the leagues and retry with `leagueIds`.
+6. **Don't stop at the first page of leagues.** One page of `listMyOrganizationsLeagues` is not the organization's leagues — follow `hasNextPage` to the end (see "Getting every league").

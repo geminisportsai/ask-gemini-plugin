@@ -63,7 +63,7 @@ A set of advanced per-player season metrics are **not** in `listSeasonProviderMe
 
 **Scoping rule — a requested season must never be silently dropped.** League and season go together or not at all, so asking for a season alone leaves you with a league to find:
 
-1. If the user named both a league and a season, resolve the league via `listMyOrganizationsLeagues` and pass both IDs.
+1. If the user named both a league and a season, resolve the league via `listMyOrganizationsLeagues` and pass both IDs. That list is paged (20 per page by default): call it with `first: 100` and follow `pageInfo.hasNextPage` / `after: <pageInfo.endCursor>` to the last page — a league not on the first page is not out of scope.
 2. If the user named **only a season**, resolve the player's own league first — via `listMyOrganizationsLeagues`, or the player's `currentLeague` — and pass that league with the requested season. Dropping to an unscoped call would answer about a different span than the one asked for.
 3. If exactly one league cannot be identified, **ask the user which competition they mean.** Do not make an unscoped call and present the result as if it covered their season.
 

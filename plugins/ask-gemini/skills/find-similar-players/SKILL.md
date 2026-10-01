@@ -49,7 +49,7 @@ For league constraints, follow the empty-resolver halt rule below.
 
 ## Step 3: Resolve any named league to an ID
 
-If the user names a specific league ("cheaper Premier League version of Pedri"), call `listMyOrganizationsLeagues` and pick the matching `league_id`.
+If the user names a specific league ("cheaper Premier League version of Pedri"), call `listMyOrganizationsLeagues` and pick the matching `league_id`. The list is paged (20 per page by default): call it with `first: 100` and, while `pageInfo.hasNextPage` is true, call again with `after: <pageInfo.endCursor>`. A league that is not on the first page is not out of scope.
 
 **Empty-resolver halt** — if `listMyOrganizationsLeagues` returns an empty list, **stop immediately** and respond with this exact message (no preamble, no caveats, no partial answer):
 

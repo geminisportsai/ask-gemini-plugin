@@ -76,6 +76,8 @@ The match-resolution path depends on how the user phrased the question.
 | "in the [league] this season" without a specific match | This is a season-scope question — switch to `get_season_provider_metric`. |
 | "[opponent] in the [league]" | Resolve the league via `listMyOrganizationsLeagues` (see empty-resolver halt below), then filter `listPlayerMatches` to that league + opponent. |
 
+`listMyOrganizationsLeagues` is paged (20 per page by default): call it with `first: 100` and, while `pageInfo.hasNextPage` is true, call again with `after: <pageInfo.endCursor>`. A league that is not on the first page is not out of scope.
+
 If the user names a league, follow the empty-resolver halt rule: if `listMyOrganizationsLeagues` returns empty, stop and respond:
 
 > Your organization doesn't have any leagues configured. Please add a league in your organization settings and try again.
