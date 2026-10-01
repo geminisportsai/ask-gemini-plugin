@@ -32,6 +32,9 @@ When the user names a club (or refers to their own org's team) and asks about th
 ### 1b.i — Resolve the team to a `teamId`
 
 - **Named club** ("Arsenal", "Bayern", "Real Madrid", "Chelsea") → call `listMyOrganizationsEligibleTeams` with `search: "<club name>"` and pick the matching `team_id`. The eligible-teams resolver covers every team in the leagues the org has added. If the named club isn't in the result set, follow the empty-resolver halt in **Step 2** — do not fabricate transfers from an unknown team and do not substitute a different club.
+  - **Search by the full official name.** The search does no alias matching, so a nickname finds nothing useful. Expand common short names in the query: "PSG" → "Paris Saint-Germain", "Spurs" → "Tottenham Hotspur", "Man Utd" → "Manchester United", "Man City" → "Manchester City", "Wolves" → "Wolverhampton Wanderers". Apply the same rule to any other short name you recognise.
+  - **Pick the senior side.** The results also hold a club's youth, reserve and women's teams (U19, U21, U23, B or II sides, women). Use the senior men's side unless the user asked for one of those.
+  - **Prefer the expected country.** When clubs share a name (a "Chelsea" in Ghana as well as England), read each result's `league` and pick the club in the country the user means — for a well-known club, its home league.
 - **"We" / "us" / "our" / "my team"** → call `listMyOrganizationsTeams` first and use the resulting `team_id`. That's the user-org-owned scope.
 
 ### 1b.ii — Decision table for `direction`, `window`, and `season`
@@ -40,11 +43,12 @@ When the user names a club (or refers to their own org's team) and asks about th
 |---|---|---|---|
 | "signings", "who did [club] sign", "incoming", "buys", "[club] bought" | `IN` | (from window phrasing) | (from season phrasing) |
 | "sales", "outgoing", "who left", "who did [club] sell", "departures" | `OUT` | (from window phrasing) | (from season phrasing) |
-| "transfers", "movement", "loan deals", "moves", "activity", no direction word | `ALL` | (from window phrasing) | (from season phrasing) |
+| "transfers", "movement", "moves", "activity", no direction word | `ALL` | (from window phrasing) | (from season phrasing) |
+| "loan deals", "loans", "loaned out", "loan returns" | `OUT` and `IN`, as two calls (see **1b.v**) | (from window phrasing) | (from season phrasing) |
 | "this summer", "summer window", "summer transfers" | (from direction) | `SUMMER` | omit |
 | "January", "winter window", "January transfers" | (from direction) | `WINTER` | omit |
 | "last summer" | (from direction) | `SUMMER` (previous year — pass the prior `season` if available) | omit |
-| "this season", "this year" | (from direction) | omit | current `season_id` |
+| "this season", "this year", "last season", "2025/26" | (from direction) | omit | season `id` from `listSeasons` (see **1b.iii**) |
 | "career", "ever", "all time", no temporal cue | (from direction) | omit | omit |
 
 If the user gives both a window and a season ("Arsenal's summer signings this season"), pass both — the resolver pins the window to the season's calendar year (SUMMER → season start year, WINTER → season end year).
@@ -56,15 +60,67 @@ Backend semantics (so you don't try to over-constrain or post-filter):
 - Combining `season` + `window` pins the year (e.g., `season=2023/24` + `window=WINTER` → Jan–Feb 2024 only).
 - An unknown `seasonId` returns `[]` — treat this as the empty-result halt below.
 
-Don't try to filter by a window field in your response; pass the args to the tool and trust the returned rows.
+Don't try to filter by a window field in your response; pass the args to the tool and trust the returned rows for the window and season. Loan questions are the one case where you filter the rows yourself — see **1b.v**.
 
-### 1b.iii — Empty-result halt
+### 1b.iii — Resolve a named season with `listSeasons`
+
+When the question names a season — "this season", "last season", "2025/26", "2024-25" — call `listSeasons` once, pick the matching season, and pass its `id` as `season`. Never send a season question without `season`: the unscoped call returns the club's most recent transfers, not that season's.
+
+- `listSeasons` returns two seasons for most years: a **split season** (`endYear` = `startYear` + 1, e.g. 2026/27) and a **calendar season** (`endYear` = `startYear`). Both carry the same `displayYear`, so never choose by `displayYear`.
+- Clubs in leagues that run autumn to spring (England, Spain, Germany, Italy, France, Portugal, the Netherlands and most of Europe) use the **split season**. Use the calendar season only for leagues that play inside one calendar year (e.g. MLS, Brazil, Scandinavia).
+- "this season" is the split season whose `startYear` is the current year when today is on or after 1 June, and the previous year before that. "last season" is the one before it. "2025/26" is `startYear` 2025, `endYear` 2026.
+- Pass `first: 100` on every `listTransfersByTeamId` call. The tool's default of 20 cuts a busy club's season off partway, and 100 is the server-side cap.
+
+### 1b.iv — Empty-result halt
 
 If `listTransfersByTeamId` returns `[]`, respond with this exact wording (substitute the actual club + window/season) and **stop**:
 
 > No transfers found for [club] in [window/season].
 
 Do **not** fan out to `transfersByPlayerIds` as a "let me try another way" fallback. Do **not** silently broaden the filter. Do **not** invent transfers from contract data or other tools.
+
+### 1b.v — Loan questions
+
+When the user asks about **loans** ("loan deals", "who did [club] loan out", "loan signings", "loan returns"), follow these steps in order. A transfer row has no type field, so you filter the rows yourself.
+
+**Step A — Fetch the whole season.** Call `listTransfersByTeamId` for this season with `direction: "OUT"` and again with `direction: "IN"`, each with the resolved `season` and `first: 100`. Two calls rather than one `ALL` call because a tool result over 50,000 characters is cut, and a busy club's whole season in one call loses its oldest moves. If a result ends with "[truncated from", that direction did not arrive whole: call it again per window — `window: "SUMMER"`, then `window: "WINTER"`, each with the same `season` — and use those rows instead. If a window's result is still truncated, say the list may be incomplete, and never claim a move is absent.
+
+**Step B — Sort every row into one of three kinds.** Go row by row through both results, to the last row of each — the rows are newest first, so the oldest moves sit at the end and are the easiest to miss. A row is listed only when its `fee` is null or contains "loan". Every other row is excluded, whatever the user asked.
+
+- **Confirmed loan:** the row's `fee` or `contractDuration` contains "loan" (any case). A row whose `fee` reads "End of loan" (or similar) is a loan return.
+- **Permanent — drop it:** never list a row whose `fee` is an amount (such as "€15M" or "€350K") or "Free transfer" in a loan answer. Drop these before you write anything. A fee such as "€10.0M" on a youth signing is still an amount, so the row is dropped.
+- **Undisclosed:** a row whose `fee` is null and whose `contractDuration` does not say loan. It may be a loan or an undisclosed transfer — the data cannot tell them apart. List every one of these moves. When a player has two rows for the same move (same clubs, a few days apart), that is one move — list it once and count it once, with the later date.
+
+A 30 June incoming move with no fee may be a player coming back from a loan, but the data does not say so: keep every 30 June move under undisclosed incoming, and never call it a loan return.
+
+**Step C — Write the answer.** Before writing, count the moves you will list, in your reasoning: write "OUT 1: …", "OUT 2: …" for each undisclosed outgoing move and "IN 1: …", "IN 2: …" for each undisclosed incoming one, one line per move you will list (a duplicate row gets no line of its own). Take the outgoing moves only from the `direction: "OUT"` result and the incoming moves only from the `direction: "IN"` result. N and M are the last numbers. The numbers must match what you list.
+
+- When undisclosed moves exist, open with what was found: "[Club]'s transfer data doesn't mark loans; here are the moves without a disclosed fee in [season] — [N] outgoing and [M] incoming moves without a disclosed fee." Never open with "No … loan deals were found" or any other sentence that reads as none when moves exist. The transfer data doesn't mark loans, so **never say there were no loans** while undisclosed moves remain.
+- When confirmed loans exist, list them first.
+- When any undisclosed incoming move is dated 30 June, add after the list: "Some of these may be loan returns; the data can't confirm it yet."
+
+Give each move's date and, when present, the loan end from `contractExpiryDate` (or `contractDuration`). Leave out any heading with no moves.
+
+- **Outgoing loans** — confirmed loans where the club is the `sourceTeam`.
+- **Incoming loans** — confirmed loans where the club is the `destinationTeam` and the row is not a return.
+- **Loan returns** — confirmed "End of loan" rows, in either direction.
+- **Fee not disclosed — may be loans or undisclosed transfers** — every undisclosed move, split into outgoing and incoming.
+
+When the season has no confirmed loan and no undisclosed move, say exactly:
+
+> No loan deals or undisclosed moves were found for [club] in [season].
+
+Example shape (placeholders, not real players):
+
+> Club Q's transfer data doesn't mark loans; here are the moves without a disclosed fee in 2026/27 — 2 outgoing and 2 incoming moves without a disclosed fee.
+>
+> **Fee not disclosed — may be loans or undisclosed transfers**
+> - Outgoing: Player A → Club X (2026-08-28)
+> - Outgoing: Player C → Club Z (2026-09-01)
+> - Incoming: Player D from Club W (2026-08-30)
+> - Incoming: Player B from Club Y (2026-06-30)
+>
+> Some of these may be loan returns; the data can't confirm it yet.
 
 ## Step 2: Empty-resolver halt
 
@@ -114,7 +170,7 @@ Don't mix paths — a club-scoped prompt goes through `listTransfersByTeamId` on
 
 ## Step 5: Empty / null handling
 
-- `listTransfersByTeamId` returns `[]`: use the exact halt wording from Step 1b.iii.
+- `listTransfersByTeamId` returns `[]`: use the exact halt wording from Step 1b.iv.
 - `transfersByPlayerId` / `transfersByPlayerIds` returns no rows: state plainly that no transfers matched the filters. Do not synthesize transfers from contract data or invent a "no transfer activity" club summary.
 - A named player has no career transfers (rare — e.g., one-club player): say so explicitly. That is a valid answer, not a failure.
 
@@ -144,7 +200,7 @@ Pass through the loan / permanent / free-transfer distinction when the data has 
 1. **Don't conflate transfers with contracts.** "Where has Rice played" is a transfer question. "When does Rice's contract end" is a `summarize_player` / `lookup_contracts` question.
 2. **Don't use `executeSqlQuery`.** No SQL fallback for transfer data.
 3. **Don't fan out from `listMyOrganizationsEligibleTeams` + `transfersByPlayerIds` for a club-scoped prompt.** That was a workaround for a now-closed tool gap. `listTransfersByTeamId` is the only correct path.
-4. **Don't drop or downgrade direction.** "Signings" must map to `IN`, "outgoing" to `OUT`, "loan deals / movement / transfers" with no direction word to `ALL`. Picking `ALL` when the user said "signings" is wrong.
+4. **Don't drop or downgrade direction.** "Signings" must map to `IN`, "outgoing" to `OUT`, "movement / transfers" with no direction word to `ALL`, and loan questions to two calls, `OUT` and `IN` (see **1b.v**). Picking `ALL` when the user said "signings" is wrong.
 5. **Don't infer a window the user didn't ask for.** Default to last 12 months only when the user gave no temporal cue; do not silently truncate "all transfers" to last 12 months.
 6. **Don't invent fees.** Undisclosed fees stay undisclosed.
 7. **Don't pick the wrong player.** If `searchPlayers` returns a player whose attributes contradict the prompt, re-search with a more specific query before continuing.
