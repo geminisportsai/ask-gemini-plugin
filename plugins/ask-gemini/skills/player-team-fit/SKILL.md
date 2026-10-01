@@ -25,6 +25,12 @@ Every prompt for this intent names at least one player. Call `searchPlayers` fir
 | "What teams does X fit best?" / "Who could I sell X to?" (open-ended) | `rankTeamsByPlayerFit` with `leagueIds` | **Always scope by ALL of the org's leagues.** Collect every league with `listMyOrganizationsLeagues` (see "Getting every league" below), then pass every league_id as `leagueIds`. Do not call this tool fully unscoped (only `playerId`, no `teamIds`, no `leagueIds`) — see pitfall 5. |
 | "What [league] teams fit X?" (league-scoped) | `rankTeamsByPlayerFit` with `leagueIds` | Resolve the league via `listMyOrganizationsLeagues` — read every page (see "Getting every league") — and pass it as `leagueIds`. |
 
+**Selling ("Who could I sell X to?", "Where could X move?")**: the answer is a list of possible buyers, so a club that cannot buy the player is not an answer. These exclusions apply only for selling — for "What teams does X fit best?" exclude nothing.
+
+- Exclude the organization's own clubs (`listMyOrganizationsTeams`): drop the organization's clubs by team id.
+- Exclude the player's current club (`clubName` from `searchPlayers`), matched by name — there is no id for it here. If `clubName` is missing or null, do not claim the current club was excluded; say in one line that you couldn't confirm the player's current club.
+- Call `rankTeamsByPlayerFit` with `first` set to N + 1 + the number of clubs `listMyOrganizationsTeams` returned, capped at 50 (N = the number of teams you will show, 10 by default), so the list still has N teams after the exclusions. Say in one line which clubs you left out.
+
 `first` defaults to 10 on `rankTeamsByPlayerFit`. Use a smaller value (e.g., 5) when the user asks for a top-N explicitly ("top 3 teams"). Maximum is 50.
 
 ### Getting every league
