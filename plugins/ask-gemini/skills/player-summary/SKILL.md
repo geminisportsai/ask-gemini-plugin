@@ -37,18 +37,18 @@ Common surnames ("Saka", "Haaland", "Rodri", "Mbappe", "Bellingham") often retur
 Call `getPlayerBioDataByPlayerId` with the player's ID. This single call carries most of the profile:
 
 - Identity: age, height, nationality, `currentClub`, `generalPosition`
-- `gpr` — Gemini Player Rating (see framing rules in Step 6)
+- `gpr` — Gemini Player Rating: the player's GPR, the same value the roster ranking uses (see framing rules in Step 6)
 - `teamStyleFit` — how well the player fits **your team's** tactics (not their current team's)
 - `fitScore` — how well the player matches **your defined archetype** for the role
 - Valuation: `playerValuation` (public), `minGeminiPlayerValuation` / `maxGeminiPlayerValuation` (Gemini's fair-price range; fall back to `fairFee` / `expectedFee` if the Gemini bounds are null)
 - `contractExpires` — express as months remaining (or "contract expired" when past)
 - `isInjured` — mention only when true
 
-Also call `getPlayer` if you need the full player record (positions list, team relation), and `getPlayerDataSummary` for the aggregated performance view.
+Also call `getPlayer` if you need the full player record (positions list, team relation), and `getPlayerDataSummary` for the aggregated performance view. `getPlayer`'s `playerRatingTimeSeries` lists one `singleSeasonGpr` per season — a single season's rating, not the player's GPR (see Step 6).
 
 ## Step 3: Get seasonal scores and match history (general profile)
 
-- `getPlayerSeasonCategoricalScores` — season-level categorical scores (attributes) showing how the profile trends across seasons and skill areas.
+- `getPlayerSeasonCategoricalScores` — season-level categorical scores (attributes) showing how the profile trends across seasons and skill areas. Quote a category score as its bare number — never as "x/100".
 - `listPlayerMatches` — recent appearances: playing time, results, competition level.
 
 ## Step 4: Read scout reports (required for any scout-opinion phrasing)
@@ -85,7 +85,9 @@ Structure:
 ### GPR framing rules (verbatim semantics)
 
 - GPR stands for "Gemini Player Rating" — never "General Performance Rating" or "Gemini Performance Rating".
-- Scale: 0–100 where 50 = average player in the player's league. Under 40 = below league average; 40–<75 = average to above average; ≥75 = good quality.
+- **A player's GPR is ONLY `bioData.gpr`** (the top-level `gpr` returned by `getPlayerBioDataByPlayerId`; `bioData.gpr` on a `getPlayer` record) — the same value the roster ranking uses. Never present any other number as the player's GPR: not a `singleSeasonGpr` or `singleSeasonGprLeague` (one season's rating), `timeDecayedGprPred`, a potential / ceiling / floor / peak GPR, GPM, or a category score.
+- When you quote a season's value, label it as that season's single-season rating (e.g. "2024/25 single-season rating: 103") — never as "GPR" or "current-season GPR".
+- Scale: roughly 0–100 where 50 = average player in the player's league; elite players can exceed 100, so never write GPR as "x/100" or with any "/100" denominator. Under 40 = below league average; 40–<75 = average to above average; ≥75 = good quality.
 - Report the single GPR value only — never mention "Time Decay GPR", "TIME_DECAYED_GPR", or "Seasonal GPM".
 - **Honesty rule**: when GPR is below 40, use honest language like "limited" or "below standards". Do NOT use "solid", "promising", or "intriguing" for a sub-40 player.
 
