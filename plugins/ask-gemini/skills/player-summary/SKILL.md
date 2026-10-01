@@ -49,7 +49,9 @@ Also call `getPlayer` if you need the full player record (positions list, team r
 ## Step 3: Get seasonal scores and match history (general profile)
 
 - `getPlayerSeasonCategoricalScores` — season-level categorical scores (attributes) showing how the profile trends across seasons and skill areas. Quote a category score as its bare number — never as "x/100".
-- `listPlayerMatches` — recent appearances: playing time, results, competition level. It lists fixtures newest-first **including upcoming ones**, so a match counts as a recent appearance only when its `matchDate` is before the current date. Never list an upcoming fixture under recent matches; if you mention one, label it "upcoming".
+- `listPlayerMatches` — recent appearances: playing time, results, competition level. It lists fixtures newest-first **including upcoming ones**, so the first rows are often matches that have not been played yet. Never list an upcoming fixture under recent matches.
+  - Before writing the match section, compare each match's `matchDate` with the current date: a match dated before today is a recent appearance; every match dated today or later goes only on a separate "Upcoming:" line (or is left out) — never inside the recent list.
+  - Then check the first row of your recent list: if its date is today or later, move it to "Upcoming:".
 
 ## Step 4: Read scout reports (required for any scout-opinion phrasing)
 
@@ -79,7 +81,7 @@ Structure:
 2. **Squad-role projection (REQUIRED)**: state the player's projected squad role based on GPR: <40 = reserve depth, 40–<60 = backup, 60–<75 = competing for a starting spot, ≥75 = likely starter. Phrase it concretely ("would likely be a backup option at right wing"). This is non-negotiable — include it in every general profile.
 3. **Performance overview**: GPR, Team Fit, Player Fit, and standout categorical scores.
 4. **Valuation & contract**: public valuation plus Gemini's lower–upper fair-price range; contract as months remaining. Include pipeline status and injury status when present.
-5. **Season trends & recent matches**: improvement/decline across seasons; recent appearances with competition and minutes.
+5. **Season trends & recent matches**: improvement/decline across seasons; recent **played** matches (dated before today) with competition and minutes, then any upcoming fixtures on their own "Upcoming:" line.
 6. **Insights**: career trajectory, strengths, or concerns the data highlights — including a brief scout/notes flavor when reports or notes exist.
 
 ### GPR framing rules (verbatim semantics)
