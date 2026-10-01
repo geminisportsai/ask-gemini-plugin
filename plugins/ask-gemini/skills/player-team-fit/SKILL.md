@@ -22,7 +22,7 @@ Every prompt for this intent names at least one player. Call `searchPlayers` fir
 | "How does X fit team Y?" (one team) | `getPlayerTeamFit` | Resolve team Y via `listMyOrganizationsEligibleTeams` (see Step 3), then call with `(playerId, teamId)`. |
 | "Compare X's fit at A vs B" (2 teams) | `getPlayerTeamFit` × 2 | One call per team, present side-by-side. |
 | "How does X fit A, B, C?" (3+ named teams) | `rankTeamsByPlayerFit` with `teamIds` | Resolve all named team IDs first, pass as `teamIds`. Sorted result is convenient. |
-| "What teams does X fit best?" / "Who could I sell X to?" (open-ended) | `rankTeamsByPlayerFit` with `leagueIds` | **Always scope by ALL of the org's leagues.** Collect every league with `listMyOrganizationsLeagues` (see "Getting every league" below), then pass every league_id as `leagueIds`. Do not call this tool fully unscoped (only `playerId`, no `teamIds`, no `leagueIds`) — see pitfall 5. |
+| "What teams does X fit best?" / "Who could I sell X to?" (open-ended) | `rankTeamsByPlayerFit` with `leagueIds` | **Always scope by ALL of the org's leagues** — including "What 5 teams does X fit well to?" and any other top-N phrasing: collect every league with `listMyOrganizationsLeagues` (see "Getting every league" below), then pass every league_id as `leagueIds` (the full list, however long), along with `first`. Do not call this tool fully unscoped (only `playerId`, no `teamIds`, no `leagueIds`) — see pitfall 5. |
 | "What [league] teams fit X?" (league-scoped) | `rankTeamsByPlayerFit` with `leagueIds` | Resolve the league via `listMyOrganizationsLeagues` — read every page (see "Getting every league") — and pass it as `leagueIds`. |
 
 **Selling ("Who could I sell X to?", "Where could X move?")**: the answer is a list of possible buyers, so a club that cannot buy the player is not an answer. These exclusions apply only for selling — for "What teams does X fit best?" exclude nothing.
@@ -48,7 +48,9 @@ Every prompt for this intent names at least one player. Call `searchPlayers` fir
 ## Step 4: Handle empty / null results
 
 - `getPlayerTeamFit` returns `null` when no manager-vector data is available for that (player, team) pair. Surface that fact to the user ("I don't have stylistic data for [player] at [team]") — do not guess a score or fall back to a different tool.
-- `rankTeamsByPlayerFit` returns an empty array when the player has no manager-context history in the org. Tell the user — do not substitute an unscoped player list or invent a ranking.
+- If `rankTeamsByPlayerFit` returned an empty array and you did not pass `leagueIds` or `teamIds`, the call was wrong: call it again with every league_id as `leagueIds` before answering (collect them per "Getting every league"). An unscoped call can come back empty for a player who has fit data.
+- `rankTeamsByPlayerFit` returns an empty array, with `leagueIds` or `teamIds` set, when the player has no manager-context history in the org. Only then tell the user there is no stylistic fit data for that player — do not substitute an unscoped player list or invent a ranking.
+- Never tell the user to add leagues when `listMyOrganizationsLeagues` returned any — an empty fit result is about the player's data, not the organization's leagues.
 
 ## Step 5: Present the result
 
