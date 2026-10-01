@@ -21,7 +21,7 @@ Use a different intent when:
 
 ## What `rankPlayersByMetric` does
 
-It builds a cohort from structured attributes (the same filter as `filterPlayers`: position, league/competition, team, nationality, age, valuation, minutes, role archetype) and then **ranks that cohort by a provider metric**, optionally filtering by per-metric `min`/`max` thresholds. Each result carries the metric value(s) it was ranked on. It is org-scoped and season-scoped (latest season with data by default).
+It builds a cohort from structured attributes (the same filter as `filterPlayers`: position, league/competition, team, nationality, age, valuation, role archetype) and then **ranks that cohort by a provider metric**, optionally filtering by per-metric `min`/`max` thresholds. Each result carries the metric value(s) it was ranked on. It is org-scoped and season-scoped (latest season with data by default).
 
 Arguments:
 
@@ -29,7 +29,7 @@ Arguments:
 - `sortByMetric` — the metric to rank by (a `ProviderMetricField` enum value, see table below). **Required.**
 - `metricFilters` — optional list of `{ metric, min?, max? }` thresholds (each `metric` is a `ProviderMetricField`).
 - `sortOrder` — `DESC` (default) for "most/best", `ASC` for "least".
-- `seasonId` — optional; **omit for the latest season with data**. Resolve a named / "this/last" season via `listSeasons`.
+- `seasonId` — optional; **omit for the latest season with data** — "this season" means omit it. Resolve a named or "last" season via `listSeasons`.
 - `first` — page size (default 20).
 
 ## Step 1: Build the cohort filter (resolve IDs first)
@@ -44,6 +44,22 @@ Resolve any named attributes to IDs before calling the tool, exactly as for `fil
 - preferred foot → no lookup; pass `filter.feet` directly as a `PlayerFoot` array (`LEFT` / `RIGHT` / `BOTH`)
 
 Put these into `filter` (`positionIds`, `leagueIds`/`competitionIds`, `teamIds`, `nationalities`, `roleArchetypes`, `feet`, plus `minAge`/`maxAge`, `minValuation`/`maxValuation`, etc.). A cohort with at least one criterion is required.
+
+### Role groups → positions (fixed)
+
+When the user names a role group, set `positionIds` to the IDs (from `listPositions`) of exactly these abbreviations. **Always use exactly the positions in this table for a role group** — never widen or narrow it from run to run, so the same question ranks the same cohort every time. Use only abbreviations `listPositions` actually returns.
+
+| Role group the user names | Positions |
+|---|---|
+| Attacking midfielders ("AMs", "number 10s") | CAM, LAM, RAM |
+| Defensive midfielders ("DMs", "holding midfielders") | CDM, LDM, RDM |
+| Midfielders (general) | CDM, LDM, RDM, CM, LCM, RCM, CAM, LAM, RAM |
+| Centre-backs ("CBs", "central defenders") | CB, LCB, RCB |
+| Full-backs ("FBs", "full-backs", "wing-backs") | LB, RB, LWB, RWB |
+| Wingers | LW, RW |
+| Strikers ("forwards", "centre-forwards", "number 9s") | CF, LCF, RCF, SS |
+
+A side applies to full-backs and wingers only: "left-backs" → LB, LWB; "right-backs" → RB, RWB; "left wingers" → LW; "right wingers" → RW. Wide midfielders (LM, RM) are not in the Wingers group until that is confirmed — don't add them. The position filter matches any position a player is listed at, so a player whose main role is elsewhere can still appear — don't describe the list as "primary position only".
 
 For **footedness**, include `BOTH` alongside the side — a two-footed player can play either foot: **left-footed** → `feet: [LEFT, BOTH]`, **right-footed** → `feet: [RIGHT, BOTH]`.
 
@@ -103,6 +119,16 @@ If the only metric the user named is unavailable, tell them which metrics *are* 
 - "the most / best / top" → `sortOrder: DESC`; "least / fewest" → `ASC`.
 - You can threshold on one metric and sort by another (e.g. threshold crosses ≥ 2/90, sort by `CROSS_XA_P90`).
 
+**Same question, same call.** Build the call the same way every time:
+
+- `first` = the number the user asked for (10 if none).
+- Omit `seasonId` unless the user named a season.
+- Add no filter the user did not ask for — no extra positions, ages, leagues or thresholds. If the user named no cohort at all (the filter would be empty, which the tool rejects), ask which league or position to rank rather than inventing one.
+
+**Minutes.** Do not pass `minMinutesPlayed` to set a per-90 sample size: it filters a player's minutes across all seasons, not the season being ranked, so it neither removes small-sample players nor matches "at least 900 minutes this season". There is no season-minutes threshold yet. If the user asks for one, run the ranking without it and say the minutes threshold isn't available yet, rather than approximating it.
+
 ## Step 4: Present results
 
-Report the ranked players with the metric value(s) they ranked on (the tool returns them per player). State the season used and that values are per-90 unless the metric is a total (`NP_XG_TOTAL`). If a threshold filtered the cohort to few/no players, say so plainly.
+Report the ranked players with the metric value(s) they ranked on (the tool returns them per player). State the season used and that values are per-90 — except `NP_XG_TOTAL` (a season total) and `CROSSING_RATIO` / `PASSING_RATIO` (0–1 ratios). If a threshold filtered the cohort to few/no players, say so plainly.
+
+For any ranking except `NP_XG_TOTAL`, add one line: "This ranking is not filtered by minutes played this season, so players with few minutes can rank high." Show a player's club only when the tool returned it for that player (`clubName`) — never from memory. Rank results often carry no club; then show none and don't look one up.
