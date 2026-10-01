@@ -134,11 +134,13 @@ If `listMyOrganizationsEligibleTeams` has no match for the named club, respond:
 
 > That team isn't in the leagues your organization has added. Please add the relevant league in your organization settings and try again.
 
+`listMyOrganizationsLeagues` is paged (20 per page by default): call it with `first: 100` and, while `pageInfo.hasNextPage` is true, call again with `after: <pageInfo.endCursor>`. A league that is not on the first page is not out of scope.
+
 If `listMyOrganizationsLeagues` returns empty for a league-scoped prompt, respond:
 
 > Your organization doesn't have any leagues configured. Please add a league in your organization settings and try again.
 
-If the named league isn't in the resolver's results, respond:
+If the named league isn't in the resolver's results after every page has been read, respond:
 
 > Your organization doesn't have the [league name] league configured. Please add it in your organization settings and try again.
 
