@@ -36,7 +36,7 @@ Arguments:
 
 Resolve any named attributes to IDs before calling the tool, exactly as for `filterPlayers`:
 
-- positions → `listPositions`
+- positions → `listPositions`. Page `listPositions` before using any position id: call it with `first: 100`; while `pageInfo.hasNextPage` is true, call again with `after: pageInfo.endCursor`. Never rank or filter on a partial position list — a position missing from the first page still exists. Do not pass `isGeneral`: it returns only general positions, without the abbreviations the role groups use. Finish paging `listPositions` before the first `rankPlayersByMetric` call, so the role group's ids are complete on that one call.
 - leagues → `listMyOrganizationsLeagues`
 - teams → `listMyOrganizationsTeams`
 - nationalities → `listNationalities`
@@ -47,7 +47,7 @@ Put these into `filter` — any position cohort goes in `primaryPositionIds` (se
 
 ### Role groups → positions (fixed)
 
-When the user names a role group, set `primaryPositionIds` (not `positionIds`) to the IDs (from `listPositions`) of exactly these abbreviations, so only players whose **primary** position is in the group are ranked. **Always use exactly the positions in this table for a role group** — never widen or narrow it from run to run, so the same question ranks the same cohort every time. Use only abbreviations `listPositions` actually returns.
+When the user names a role group, set `primaryPositionIds` (not `positionIds`) to the IDs (from `listPositions`) of exactly these abbreviations, so only players whose **primary** position is in the group are ranked. **Always use exactly the positions in this table for a role group** — never widen or narrow it from run to run, so the same question ranks the same cohort every time. Use only abbreviations that appear anywhere in the fully paged `listPositions` result.
 
 | Role group the user names | Positions |
 |---|---|
