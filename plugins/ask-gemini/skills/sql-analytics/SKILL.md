@@ -344,7 +344,9 @@ Worked example — "Show me 5 moppers who cost less than 10M that are recommende
 
 So the answer ends: "Not applied: mopper (scouts' positional profile), recommended by our scouts — that isn't available from our scout reports yet." followed by the Coverage sentence.
 
-A role name tied to our scouts is never the statistical archetype: name it not applied — "mopper (scouts' positional profile)" — never put it in `roleArchetypes` and never call `listRoleArchetypes` for it. If you offer the statistical archetype as a follow-up, label it as the statistical role archetype, not a scout's view.
+A role name tied to a scout verdict is never the statistical archetype: name it not applied — "mopper (scouts' positional profile)" — never put it in `roleArchetypes` and never call `listRoleArchetypes` for it. If you offer the statistical archetype as a follow-up, label it in the answer as "the statistical <ARCHETYPE> role archetype, not a scout's view".
+
+A role tied only to having a report ("moppers we've scouted") is the statistical archetype: filter on `s."ROLE_ARCHETYPE"` and label it in the answer as "the statistical <ARCHETYPE> role archetype, not a scout's view".
 
 How to do it scoped — one retrieval, ranked within what it returned:
 
@@ -374,7 +376,7 @@ How to do it scoped — one retrieval, ranked within what it returned:
 
    A player with no stats row (or a NULL GPR) still comes back from the `LEFT JOIN` — treat them as "no GPR yet": they are not ranked, and the final paragraph says so (step 5). **Never** add `public.scout_report` to a `FROM`/`JOIN`.
 
-   **Do not call `getSqlSchema` in this procedure** — not even after a column error. Its sample rows contain raw scout-report data outside the user's permissions, and nothing in it is a fact about these players. Use only these columns: from `public.player p` — `p.id`, `p.first_name`, `p.last_name`; from `stat.player_stats_pivoted s` — `s."PLAYER_ID"`, `s."TIME_DECAYED_GPR"` (GPR), `s."AGE"`, `s."GENERAL_POSITION"`, `s."PRIMARY_POSITION"` (e.g. left winger), `s."CURRENT_CLUB"`, `s."CURRENT_LEAGUE"`, `s."PLAYER_VALUATION"` (full units, e.g. 10000000 for 10M), `s."NATIONALITY"`, and the skill scores `s."<FAMILY>_[TRANS_]GLOBAL_CATEGORICAL_SCORE"` from Step 8d (carrying is `s."CARRYING_TRANS_GLOBAL_CATEGORICAL_SCORE"`). If an attribute the user named has no column here, say it was not applied.
+   **Do not call `getSqlSchema` in this procedure** — not even after a column error. Its sample rows contain raw scout-report data outside the user's permissions, and nothing in it is a fact about these players. Use only these columns: from `public.player p` — `p.id`, `p.first_name`, `p.last_name`; from `stat.player_stats_pivoted s` — `s."PLAYER_ID"`, `s."TIME_DECAYED_GPR"` (GPR), `s."AGE"`, `s."GENERAL_POSITION"`, `s."PRIMARY_POSITION"` (e.g. left winger), `s."CURRENT_CLUB"`, `s."CURRENT_LEAGUE"`, `s."PLAYER_VALUATION"` (full units, e.g. 10000000 for 10M), `s."NATIONALITY"`, `s."FOOT"` (left-footed → `lower(s."FOOT") IN ('left', 'both')`, right-footed → `lower(s."FOOT") IN ('right', 'both')`), `s."ROLE_ARCHETYPE"` (the statistical role archetype, uppercase, e.g. `'MOPPER'`) — only for a role tied to having a report, never for a scout verdict — and the skill scores `s."<FAMILY>_[TRANS_]GLOBAL_CATEGORICAL_SCORE"` from Step 8d (carrying is `s."CARRYING_TRANS_GLOBAL_CATEGORICAL_SCORE"`). If an attribute the user named has no column here, say it was not applied.
 4. Rank those players by GPR (or by the metric the user asked for) and take the top N. This is a ranking within the reports you read: never present it as a ranking of every scouted player. Say it in the answer's first sentence: "Among the players in the first <N> of your <T> scout reports, the top <K> by <metric> are …" — the Coverage line alone is not enough. Never write "among those your scouts have reported on", "of all our scouted players" or any wording that reads as complete unless <N> equals <T>.
 5. **End the answer with this final paragraph, in exactly this shape:**
 
@@ -397,12 +399,13 @@ How to do it scoped — one retrieval, ranked within what it returned:
 
 **Before you answer, check your draft:**
 
-- No number is followed by "players" anywhere, except the top N the user asked for.
+- No number, in digits or in words in any language ("3", "three", "três"), is followed by "players" anywhere, except the top N the user asked for.
 - The last line starts with "Not applied:" or "Coverage:", and no offer comes after it.
 - Every Not applied item ends with exactly "— that isn't available from our scout reports yet", with no other reason.
 - Every criterion the user named is either applied or listed under Not applied.
 - Every phrase your criteria ledger marks not applied is in the Not applied list.
 - The first sentence says "the first <N> of your <T> scout reports" unless <N> equals <T>.
+- If any row of your ranking query has a NULL `TIME_DECAYED_GPR`, the final paragraph contains "Some reported players have no GPR yet and aren't ranked." — check the rows, not your memory of them.
 
 If any check fails, fix the draft before you answer.
 
