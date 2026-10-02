@@ -14,7 +14,7 @@ Use this skill whenever the user asks a question that requires querying the spor
 
 Call `getSqlSchema` to retrieve the full database schema. This returns tables, columns with data types, foreign key relationships, unique values for filterable columns, and query construction guidelines.
 
-You must call this tool before writing any SQL query to confirm available tables and column names (Step 8b-region uses no SQL and never calls `getSqlSchema`).
+You must call this tool before writing any SQL query to confirm available tables and column names — except in Steps 8b, 8b-rank and 8b-region, which never call `getSqlSchema`, not as the first call and not after a column error: its sample rows carry raw scout-report data outside the user's permissions, and those steps list every column they need.
 
 ## Step 2: Resolve "My Roster" / "My Team" References
 
@@ -332,6 +332,20 @@ The set of scouted players and their per-player report counts MUST come from the
 
 **What "top" means.** "Top players we have scout reports on" asks for the best players among those we have scouted — rank them by GPR (`"TIME_DECAYED_GPR"` DESC), not by how many reports they have. Rank by report count only when the user asks about the number of reports ("most reports", "most scouted"). You may show each player's report count next to the GPR.
 
+**No `getSqlSchema` anywhere in this step** (see Step 1).
+
+**Criteria ledger — before you answer.** Write every criterion phrase in the question as a list in your reasoning, in the user's words — each position, price, age, league, skill, role, scout phrase and any other condition — and mark each one `applied (<the field or tool that applied it>)` or `not applied`. A phrase counts as applied only when a call that succeeded this turn applied it. Every phrase marked not applied goes into the answer's Not applied list; leave none out.
+
+Worked example — "Show me 5 moppers who cost less than 10M that are recommended by our scouts":
+
+- "moppers" → not applied: mopper (scouts' positional profile)
+- "cost less than 10M" → applied (`s."PLAYER_VALUATION" < 10000000`)
+- "recommended by our scouts" → not applied (no report read this turn carries a recommendation)
+
+So the answer ends: "Not applied: mopper (scouts' positional profile), recommended by our scouts — that isn't available from our scout reports yet." followed by the Coverage sentence.
+
+A role name tied to our scouts is never the statistical archetype: name it not applied — "mopper (scouts' positional profile)" — never put it in `roleArchetypes` and never call `listRoleArchetypes` for it. If you offer the statistical archetype as a follow-up, label it as the statistical role archetype, not a scout's view.
+
 How to do it scoped — one retrieval, ranked within what it returned:
 
 1. Make exactly one `organizationScoutReports` call: **no `search` filter** and `first: 50` (a 100-report page is larger than the tool-result size limit and gets cut, losing reports). Each `edges { node }` carries `playerId`, `playerName`, `club`, `overallScore`, `reportTypeName`, `matchDate`, `scoutName`, and — when the report type exposes them — `numericRatings` / `categoricalRatings` (`key`, `label`, `value`). Note `totalCount`. If the result carries a `TRUNCATED` note, only the edges shown count as read. Do not page further to widen coverage — even when no player in it meets the criteria; answer from this one page and say so. A full ranking across every scouted player needs a backend filter that does not exist yet.
@@ -361,7 +375,7 @@ How to do it scoped — one retrieval, ranked within what it returned:
    A player with no stats row (or a NULL GPR) still comes back from the `LEFT JOIN` — treat them as "no GPR yet": they are not ranked, and the final paragraph says so (step 5). **Never** add `public.scout_report` to a `FROM`/`JOIN`.
 
    **Do not call `getSqlSchema` in this procedure** — not even after a column error. Its sample rows contain raw scout-report data outside the user's permissions, and nothing in it is a fact about these players. Use only these columns: from `public.player p` — `p.id`, `p.first_name`, `p.last_name`; from `stat.player_stats_pivoted s` — `s."PLAYER_ID"`, `s."TIME_DECAYED_GPR"` (GPR), `s."AGE"`, `s."GENERAL_POSITION"`, `s."PRIMARY_POSITION"` (e.g. left winger), `s."CURRENT_CLUB"`, `s."CURRENT_LEAGUE"`, `s."PLAYER_VALUATION"` (full units, e.g. 10000000 for 10M), `s."NATIONALITY"`, and the skill scores `s."<FAMILY>_[TRANS_]GLOBAL_CATEGORICAL_SCORE"` from Step 8d (carrying is `s."CARRYING_TRANS_GLOBAL_CATEGORICAL_SCORE"`). If an attribute the user named has no column here, say it was not applied.
-4. Rank those players by GPR (or by the metric the user asked for) and take the top N. This is a ranking within the reports you read: never present it as a ranking of every scouted player.
+4. Rank those players by GPR (or by the metric the user asked for) and take the top N. This is a ranking within the reports you read: never present it as a ranking of every scouted player. Say it in the answer's first sentence: "Among the players in the first <N> of your <T> scout reports, the top <K> by <metric> are …" — the Coverage line alone is not enough. Never write "among those your scouts have reported on", "of all our scouted players" or any wording that reads as complete unless <N> equals <T>.
 5. **End the answer with this final paragraph, in exactly this shape:**
 
    > Not applied: <each criterion you did not apply, in the user's words> — that isn't available from our scout reports yet. Coverage: the <N> scout reports I could read (you have <T>).
@@ -378,7 +392,7 @@ How to do it scoped — one retrieval, ranked within what it returned:
    - List every criterion the user named that you did not apply, each in the user's own words — e.g. "rated as a worthwhile first-11 investment by our scouts", "recommended by our scouts", a scout positional profile such as "mopper", or an attribute with no column above. Leave out the "Not applied:" sentence only when every criterion was applied.
    - <N> is the number of edges you actually read and <T> is `totalCount` — never a fixed page size, and never `totalCount` as the number you read.
    - If any reported players had no GPR, put this sentence just before "Coverage:": "Some reported players have no GPR yet and aren't ranked."
-   - Never state a count of players anywhere in the answer — not "covering 23 distinct players", not how many players the reports cover, not how many matched, not how many lack a GPR. Player counts come from ids copied by hand and can be wrong. (Listing the top N the user asked for is fine.)
+   - Never state a count of players anywhere in the answer, even when you read every report — not "covering 23 distinct players", not "the 8 scouted players under that price", not "these three players", not how many players the reports cover, not how many matched, not how many lack a GPR. Player counts come from ids copied by hand and can be wrong. (Listing the top N the user asked for is fine.)
    - Forbidden wording: never say our scout reports "don't contain", "don't include", "don't record" or "don't have" something, and never describe what our scout reports contain instead. The data exists; it just isn't available here yet — say "isn't available from our scout reports yet" and nothing more about it.
 
 **Before you answer, check your draft:**
@@ -387,10 +401,12 @@ How to do it scoped — one retrieval, ranked within what it returned:
 - The last line starts with "Not applied:" or "Coverage:", and no offer comes after it.
 - Every Not applied item ends with exactly "— that isn't available from our scout reports yet", with no other reason.
 - Every criterion the user named is either applied or listed under Not applied.
+- Every phrase your criteria ledger marks not applied is in the Not applied list.
+- The first sentence says "the first <N> of your <T> scout reports" unless <N> equals <T>.
 
 If any check fails, fix the draft before you answer.
 
-**Scout judgements the reports may not carry.** Some questions ask for a specific scout verdict — "rated as a worthwhile first-11 investment", "recommended", or a scout positional profile such as "mopper", "ball-winner", "inverted winger". Apply it only when the report data you retrieved in this conversation actually contains it (a `categoricalRatings` / `numericRatings` entry with that meaning). If it does not, do not guess and do not replace it with GPR, `overallScore`, or a role archetype: answer with the scouted players that meet the other criteria — the judgement isn't available from our scout reports yet — list it under Not applied (step 5). `overallScore` may be shown, labelled as the report's overall score — never called a recommendation.
+**Scout judgements the reports may not carry.** Some questions ask for a specific scout verdict — "rated as a worthwhile first-11 investment", "recommended", or a scout positional profile such as "mopper", "stopper". Apply it only when the report data you retrieved in this conversation actually contains it (a `categoricalRatings` / `numericRatings` entry with that meaning). If it does not, do not guess and do not replace it with GPR, `overallScore`, or a role archetype: answer with the scouted players that meet the other criteria — the judgement isn't available from our scout reports yet — list it under Not applied (step 5). `overallScore` may be shown, labelled as the report's overall score — never called a recommendation.
 
 **"Moppers" and other role names "recommended by our scouts".** A stats-derived role archetype (`MOPPER` and the others from `listRoleArchetypes`) exists in player data, but it is a statistical profile, not a scout's view. When the user asks for a role that our scouts recommend, list the scout positional profile under Not applied; you may offer the statistical role-archetype filter as a follow-up the user can ask for — e.g. "Show me moppers under 10M" — clearly labelled as statistical rather than scout-based. Never say the filter is unavailable.
 
