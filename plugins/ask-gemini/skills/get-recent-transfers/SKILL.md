@@ -49,7 +49,8 @@ When the user names a club (or refers to their own org's team) and asks about th
 | "January", "winter window", "January transfers" | (from direction) | `WINTER` | omit |
 | "last summer" | (from direction) | `SUMMER` (previous year — pass the prior `season` if available) | omit |
 | "this season", "this year", "last season", "2025/26" | (from direction) | omit | season `id` from `listSeasons` (see **1b.iii**) |
-| "career", "ever", "all time", no temporal cue | (from direction) | omit | omit |
+| "loan deals", "loans", "loaned out", "loan returns" with no temporal cue | `OUT` and `IN`, as two calls (see **1b.v**) | omit | this season's `id` from `listSeasons` (see **1b.iii**) |
+| "career", "ever", "all time", or no temporal cue on a non-loan question | (from direction) | omit | omit |
 
 If the user gives both a window and a season ("Arsenal's summer signings this season"), pass both — the resolver pins the window to the season's calendar year (SUMMER → season start year, WINTER → season end year).
 
@@ -69,6 +70,7 @@ When the question names a season — "this season", "last season", "2025/26", "2
 - `listSeasons` returns two seasons for most years: a **split season** (`endYear` = `startYear` + 1, e.g. 2026/27) and a **calendar season** (`endYear` = `startYear`). Both carry the same `displayYear`, so never choose by `displayYear`.
 - Clubs in leagues that run autumn to spring (England, Spain, Germany, Italy, France, Portugal, the Netherlands and most of Europe) use the **split season**. Use the calendar season only for leagues that play inside one calendar year (e.g. MLS, Brazil, Scandinavia).
 - "this season" is the split season whose `startYear` is the current year when today is on or after 1 June, and the previous year before that. "last season" is the one before it. "2025/26" is `startYear` 2025, `endYear` 2026.
+- A loan question with no time cue means this season: resolve it as "this season" and name the season in the answer (e.g. "in 2026/27"), so the user can see which season was used. A loan question that says "ever" or "all time" stays unscoped.
 - Pass `first: 100` on every `listTransfersByTeamId` call. The tool's default of 20 cuts a busy club's season off partway, and 100 is the server-side cap.
 
 ### 1b.iv — Empty-result halt
