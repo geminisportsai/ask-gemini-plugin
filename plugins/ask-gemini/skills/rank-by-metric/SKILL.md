@@ -38,13 +38,13 @@ Arguments:
 Resolve any named attributes to IDs before calling the tool, exactly as for `filterPlayers`:
 
 - positions → `listPositions`. Page `listPositions` before using any position id: call it with `first: 100`; while `pageInfo.hasNextPage` is true, call again with `after: pageInfo.endCursor`. Never rank or filter on a partial position list — a position missing from the first page still exists. Do not pass `isGeneral`: it returns only general positions, without the abbreviations the role groups use. Finish paging `listPositions` before the first `rankPlayersByMetric` call, so the role group's ids are complete on that one call.
-- leagues → `listMyOrganizationsLeagues`
+- leagues → `listMyOrganizationsLeagues`. A league cohort goes in `filter.playedInLeagueIds` when the `rankPlayersByMetric` tool description mentions `playedInLeagueIds`; otherwise in `filter.leagueIds`.
 - teams → `listMyOrganizationsTeams`
 - nationalities → `listNationalities`
 - role archetypes → `listRoleArchetypes`
 - preferred foot → no lookup; pass `filter.feet` directly as a `PlayerFoot` array (`LEFT` / `RIGHT` / `BOTH`)
 
-Put these into `filter` — any position cohort goes in `primaryPositionIds` (see the role-group table below; players without a recorded primary position are left out, which is expected) — plus `leagueIds`/`competitionIds`, `teamIds`, `nationalities`, `roleArchetypes`, `feet`, plus `minAge`/`maxAge`, `minValuation`/`maxValuation`, etc.). A cohort with at least one criterion is required.
+Put these into `filter` — any position cohort goes in `primaryPositionIds` (see the role-group table below; players without a recorded primary position are left out, which is expected) — plus the league field from the leagues line above, `teamIds`, `nationalities`, `roleArchetypes`, `feet`, plus `minAge`/`maxAge`, `minValuation`/`maxValuation`, etc.). A cohort with at least one criterion is required.
 
 **League cohort.** If the `rankPlayersByMetric` tool description mentions `playedInLeagueIds`, put a league cohort's IDs in `filter.playedInLeagueIds` instead of `leagueIds` (and instead of `competitionIds` for that league): it keeps the players who had minutes in that league in the ranked season, including players who have since moved club or league, while `leagueIds` is each player's current league. Never send `leagueIds` or `competitionIds` together with `playedInLeagueIds` for the same league. A team cohort (`teamIds`) stays each player's current team. When the description does not mention `playedInLeagueIds`, use `leagueIds` (the player's current league) — an older backend drops the unknown argument silently.
 
