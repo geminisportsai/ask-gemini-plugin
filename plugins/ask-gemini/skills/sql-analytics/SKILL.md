@@ -344,9 +344,9 @@ Worked example — "Show me 5 moppers who cost less than 10M that are recommende
 
 So the answer ends: "Not applied: mopper (scouts' positional profile), recommended by our scouts — that isn't available from our scout reports yet." followed by the Coverage sentence.
 
-A role name tied to a scout verdict is never the statistical archetype: name it not applied — "mopper (scouts' positional profile)" — never put it in `roleArchetypes` and never call `listRoleArchetypes` for it. If you offer the statistical archetype as a follow-up, label it in the answer as "the statistical <ARCHETYPE> role archetype, not a scout's view".
+A role name tied to a scout verdict is never the statistical archetype: name it not applied — "mopper (scouts' positional profile)" — never put it in `roleArchetypes` and never call `listRoleArchetypes` for it. If you offer the statistical archetype as a follow-up, label it in the answer as "the statistical <ARCHETYPE> role archetype, not a scout's view". In SQL, never filter `s."ROLE_ARCHETYPE"` for a role tied to a scout verdict either.
 
-A role tied only to having a report ("moppers we've scouted") is the statistical archetype: filter on `s."ROLE_ARCHETYPE"` and label it in the answer as "the statistical <ARCHETYPE> role archetype, not a scout's view".
+A role tied only to having a report ("moppers we've scouted") reads the primary archetype: filter on `s."ROLE_ARCHETYPE"` and say "players whose primary statistical role archetype is <ARCHETYPE> (not a scout's view)" — never present it as every <role> we have scouted.
 
 How to do it scoped — one retrieval, ranked within what it returned:
 
@@ -357,6 +357,7 @@ How to do it scoped — one retrieval, ranked within what it returned:
    ```sql
    WITH ids AS (SELECT unnest(ARRAY['<id1>', '<id2>', …]::uuid[]) AS id)
    SELECT (SELECT count(DISTINCT id) FROM ids) AS ids_sent,
+          count(*) FILTER (WHERE s."TIME_DECAYED_GPR" IS NULL) OVER () AS no_gpr,
           i.id AS player_id, p.first_name, p.last_name,
           s."TIME_DECAYED_GPR", s."CURRENT_CLUB", s."GENERAL_POSITION"
    FROM ids i
@@ -367,6 +368,8 @@ How to do it scoped — one retrieval, ranked within what it returned:
 
    Add the columns and `WHERE` conditions for any attribute the user named. Do not add a `LIMIT` to this query: it returns at most one row per id, and you need every row. Take the top N yourself in step 4.
 
+   **`no_gpr` check — a hard rule.** Every row carries `no_gpr`, the number of returned players with no GPR. If `no_gpr` is greater than 0, the answer must contain "Some reported players have no GPR yet and aren't ranked." — whatever else you leave out.
+
    **`ids_sent` check — a hard stop.** Before using any row, compare `ids_sent` with the distinct-player count from step 2 (the last number in your numbered list) — write both numbers in your reasoning as `ids_sent = <x>, list = <y>`. If they differ, you MUST NOT answer yet:
    1. Compare the ids in the query you ran with your numbered list, and find every id that is missing.
    2. Re-run the same query with every id from the numbered list — the full list, not only the missing ids.
@@ -376,7 +379,7 @@ How to do it scoped — one retrieval, ranked within what it returned:
 
    A player with no stats row (or a NULL GPR) still comes back from the `LEFT JOIN` — treat them as "no GPR yet": they are not ranked, and the final paragraph says so (step 5). **Never** add `public.scout_report` to a `FROM`/`JOIN`.
 
-   **Do not call `getSqlSchema` in this procedure** — not even after a column error. Its sample rows contain raw scout-report data outside the user's permissions, and nothing in it is a fact about these players. Use only these columns: from `public.player p` — `p.id`, `p.first_name`, `p.last_name`; from `stat.player_stats_pivoted s` — `s."PLAYER_ID"`, `s."TIME_DECAYED_GPR"` (GPR), `s."AGE"`, `s."GENERAL_POSITION"`, `s."PRIMARY_POSITION"` (e.g. left winger), `s."CURRENT_CLUB"`, `s."CURRENT_LEAGUE"`, `s."PLAYER_VALUATION"` (full units, e.g. 10000000 for 10M), `s."NATIONALITY"`, `s."FOOT"` (left-footed → `lower(s."FOOT") IN ('left', 'both')`, right-footed → `lower(s."FOOT") IN ('right', 'both')`), `s."ROLE_ARCHETYPE"` (the statistical role archetype, uppercase, e.g. `'MOPPER'`) — only for a role tied to having a report, never for a scout verdict — and the skill scores `s."<FAMILY>_[TRANS_]GLOBAL_CATEGORICAL_SCORE"` from Step 8d (carrying is `s."CARRYING_TRANS_GLOBAL_CATEGORICAL_SCORE"`). If an attribute the user named has no column here, say it was not applied.
+   **Do not call `getSqlSchema` in this procedure** — not even after a column error. Its sample rows contain raw scout-report data outside the user's permissions, and nothing in it is a fact about these players. Use only these columns: from `public.player p` — `p.id`, `p.first_name`, `p.last_name`; from `stat.player_stats_pivoted s` — `s."PLAYER_ID"`, `s."TIME_DECAYED_GPR"` (GPR), `s."AGE"`, `s."GENERAL_POSITION"`, `s."PRIMARY_POSITION"` (e.g. left winger), `s."CURRENT_CLUB"`, `s."CURRENT_LEAGUE"`, `s."PLAYER_VALUATION"` (full units, e.g. 10000000 for 10M), `s."NATIONALITY"`, `s."FOOT"` (left-footed → `lower(s."FOOT") IN ('left', 'both')`, right-footed → `lower(s."FOOT") IN ('right', 'both')`), `s."ROLE_ARCHETYPE"` (the player's PRIMARY statistical role archetype only, uppercase, e.g. `'MOPPER'`) — only for a role tied to having a report, never for a scout verdict — and the skill scores `s."<FAMILY>_[TRANS_]GLOBAL_CATEGORICAL_SCORE"` from Step 8d (carrying is `s."CARRYING_TRANS_GLOBAL_CATEGORICAL_SCORE"`). Never guess a column: a criterion with no column listed here (a release clause, say) is not applied — name it under Not applied without running a query for it.
 4. Rank those players by GPR (or by the metric the user asked for) and take the top N. This is a ranking within the reports you read: never present it as a ranking of every scouted player. Say it in the answer's first sentence: "Among the players in the first <N> of your <T> scout reports, the top <K> by <metric> are …" — the Coverage line alone is not enough. Never write "among those your scouts have reported on", "of all our scouted players" or any wording that reads as complete unless <N> equals <T>.
 5. **End the answer with this final paragraph, in exactly this shape:**
 
@@ -393,6 +396,7 @@ How to do it scoped — one retrieval, ranked within what it returned:
    - Put any offer or follow-up before this paragraph — nothing comes after it.
    - List every criterion the user named that you did not apply, each in the user's own words — e.g. "rated as a worthwhile first-11 investment by our scouts", "recommended by our scouts", a scout positional profile such as "mopper", or an attribute with no column above. Leave out the "Not applied:" sentence only when every criterion was applied.
    - <N> is the number of edges you actually read and <T> is `totalCount` — never a fixed page size, and never `totalCount` as the number you read.
+   - Show a valuation in the currency the tool returned; if it returned none, show the number with no currency symbol ("valued at 1.5M").
    - If any reported players had no GPR, put this sentence just before "Coverage:": "Some reported players have no GPR yet and aren't ranked."
    - Never state a count of players anywhere in the answer, even when you read every report — not "covering 23 distinct players", not "the 8 scouted players under that price", not "these three players", not how many players the reports cover, not how many matched, not how many lack a GPR. Player counts come from ids copied by hand and can be wrong. (Listing the top N the user asked for is fine.)
    - Forbidden wording: never say our scout reports "don't contain", "don't include", "don't record" or "don't have" something, and never describe what our scout reports contain instead. The data exists; it just isn't available here yet — say "isn't available from our scout reports yet" and nothing more about it.
@@ -405,7 +409,7 @@ How to do it scoped — one retrieval, ranked within what it returned:
 - Every criterion the user named is either applied or listed under Not applied.
 - Every phrase your criteria ledger marks not applied is in the Not applied list.
 - The first sentence says "the first <N> of your <T> scout reports" unless <N> equals <T>.
-- If any row of your ranking query has a NULL `TIME_DECAYED_GPR`, the final paragraph contains "Some reported players have no GPR yet and aren't ranked." — check the rows, not your memory of them.
+- If `no_gpr` is greater than 0, the final paragraph contains "Some reported players have no GPR yet and aren't ranked."
 
 If any check fails, fix the draft before you answer.
 
