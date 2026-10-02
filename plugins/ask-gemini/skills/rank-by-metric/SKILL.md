@@ -131,6 +131,8 @@ If the only metric the user named is unavailable, tell them which metrics *are* 
 
 ## Step 4: Present results
 
+**Scout criteria.** If the user also asked for players our scouts rated, recommended or think highly of: If `organizationScoutReports` is in your tools, follow the scout-report procedure (read the reports through it and restrict the ranking to the players it returned). Otherwise say that criterion was not applied, and never describe the ranked players as rated or recommended by our scouts. A ranking by a provider metric or GPR is not a scout rating.
+
 Report the ranked players with the metric value(s) they ranked on (the tool returns them per player). Always state the season — by name if you resolved it with `listSeasons`, otherwise "the latest season with data" — and that values are per-90 — except `NP_XG_TOTAL` (a season total) and `CROSSING_RATIO` / `PASSING_RATIO` (0–1 ratios). If a threshold filtered the cohort to few/no players, say so plainly.
 
 When a minutes floor was applied, say so in one line — "Players with at least <N> minutes in <season>." (the ranked season, named as above) — and show each player's minutes from the metric values. Show a player's club only when the tool returned it for that player (`clubName`) — never from memory. Rank results often carry no club; then show none and don't look one up.
