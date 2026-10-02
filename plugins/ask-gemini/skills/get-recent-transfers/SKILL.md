@@ -87,48 +87,42 @@ When the user asks about **loans** ("loan deals", "who did [club] loan out", "lo
 
 **Step B — Check the server filter is active.** An older backend ignores `feeDisclosed` without an error. The filter is not active when the rows lack the `likelyLoanReturn` field, or any row has a non-null `fee` that does not mention "loan" (an amount or "Free transfer"). In that case skip Steps C and D and follow **Fallback** below.
 
-**Step C — List every row from both calls.** List every row from both calls, to the last row of each — the server has already dropped paid and free moves, so nothing is filtered out here. A 30 June outgoing row is listed like any other. Place each row under one heading:
+**Step C — Classify every row from both calls.** Classify every row from both calls, to the last row of each — the server has already dropped paid and free moves. A 30 June outgoing row is classified like any other. Each row is exactly one of:
 
 - **Confirmed loan:** the row's `fee` or `contractDuration` contains "loan" (any case). A row whose `fee` reads "End of loan" (or similar) is a loan return.
 - **Likely loan return:** an incoming row with `likelyLoanReturn: true` — the server computed that flag from the player's earlier move out. Never infer a return yourself: a row whose `likelyLoanReturn` is false or null stays an undisclosed move, whatever its date.
-- **Undisclosed:** every other row. It may be a loan or an undisclosed transfer — the data cannot tell them apart.
+- **Undisclosed:** every other row. The data cannot tell a loan from an undisclosed transfer here, so it is not a loan for this answer.
 
-When a player has two rows for the same move (same clubs, a few days apart), that is one move — list it once and count it once, with the later date.
+When a player has two rows for the same move (same clubs, a few days apart), that is one move — count it once, with the later date.
 
-**Step D — Write the answer.** Before writing, count the moves you will list, in your reasoning: write "OUT 1: …", "OUT 2: …" for each outgoing move and "IN 1: …", "IN 2: …" for each incoming one, one line per move you will list (a duplicate row gets no line of its own). Take the outgoing moves only from the `direction: "OUT"` result and the incoming moves only from the `direction: "IN"` result. N and M are the last numbers: N counts every outgoing move you listed, after merging duplicate rows, and M counts every incoming move you listed, likely loan returns included. K is the number of likely loan returns. The numbers must match what you list.
+**Step D — Write the answer.** List only confirmed loans and likely loan returns. Never list, name or describe an undisclosed move as a possible loan — no "may be loans" list, no player names, no "some of these could be loans".
 
-- When moves exist, open with what was found: "[Club]'s transfer data doesn't mark loans; here are the moves without a disclosed fee in [season] — [N] outgoing and [M] incoming moves without a disclosed fee, of which [K] are likely loan returns." For example: "4 outgoing and 9 incoming moves without a disclosed fee, of which 7 are likely loan returns." Leave out ", of which …" when K is 0. Never open with "No … loan deals were found" or any other sentence that reads as none when moves exist. The transfer data doesn't mark loans, so **never say there were no loans** while undisclosed moves remain.
-- When confirmed loans exist, list them first.
+Before writing, count the moves in your reasoning: "LOAN 1: …", "LOAN 2: …" for each confirmed loan and likely loan return you will list (a duplicate row gets no line of its own), then U = the number of undisclosed moves after merging duplicates. The numbers must match what you write.
 
-Give each move's date and, when present, the loan end from `contractExpiryDate` (or `contractDuration`). Leave out any heading with no moves.
-
-- **Outgoing loans** — confirmed loans where the club is the `sourceTeam`.
-- **Incoming loans** — confirmed loans where the club is the `destinationTeam` and the row is not a return.
-- **Loan returns** — confirmed "End of loan" rows, in either direction.
-- **Likely loan returns** — rows with `likelyLoanReturn: true`. Always say "likely".
-- **Fee not disclosed — may be loans or undisclosed transfers** — every other undisclosed move, split into outgoing and incoming.
-
-When the season has no move at all, say exactly:
+- When at least one confirmed loan or likely loan return exists, open with "Here are [Club]'s loan moves in [season]:" and list them under these headings, leaving out any heading with no moves. Give each move's date and, when present, the loan end from `contractExpiryDate` (or `contractDuration`).
+  - **Outgoing loans** — confirmed loans where the club is the `sourceTeam`.
+  - **Incoming loans** — confirmed loans where the club is the `destinationTeam` and the row is not a return.
+  - **Loan returns** — confirmed "End of loan" rows, in either direction.
+  - **Likely loan returns** — rows with `likelyLoanReturn: true`. Always say "likely".
+- When none qualifies but undisclosed moves exist, say "No moves marked as loans were found for [club] in [season]." — not "no loans": the data doesn't mark loans, so **never say there were no loans** while undisclosed moves remain.
+- When U is above 0, end with exactly one line, with no names: "[U] other moves in [season] had no disclosed fee; the transfer data doesn't say whether they were loans, so they aren't listed."
+- When the season has no move at all, say exactly:
 
 > No loan deals or undisclosed moves were found for [club] in [season].
 
 Example shape (placeholders, not real players):
 
-> Club Q's transfer data doesn't mark loans; here are the moves without a disclosed fee in 2026/27 — 2 outgoing and 2 incoming moves without a disclosed fee, of which 1 are likely loan returns.
+> Here are Club Q's loan moves in 2026/27:
 >
 > **Likely loan returns**
 > - Player B, back from Club Y (2026-06-30)
 >
-> **Fee not disclosed — may be loans or undisclosed transfers**
-> - Outgoing: Player A → Club X (2026-08-28)
-> - Outgoing: Player C → Club Z (2026-06-30)
-> - Incoming: Player D from Club W (2026-08-30)
+> 3 other moves in 2026/27 had no disclosed fee; the transfer data doesn't say whether they were loans, so they aren't listed.
 
-**Fallback — the server filter is not active.** Filter the rows yourself. Go row by row through both results, to the last row of each — the rows are newest first, so the oldest moves sit at the end and are the easiest to miss. A row is listed only when its `fee` is null or contains "loan". Every other row is excluded, whatever the user asked.
+**Fallback — the server filter is not active.** Filter the rows yourself. Go row by row through both results, to the last row of each — the rows are newest first, so the oldest moves sit at the end and are the easiest to miss. A row is considered only when its `fee` is null or contains "loan". Every other row is excluded, whatever the user asked.
 
 - **Permanent — drop it:** never list a row whose `fee` is an amount (such as "€15M" or "€350K") or "Free transfer" in a loan answer. Drop these before you write anything. A fee such as "€10.0M" on a youth signing is still an amount, so the row is dropped.
-- List confirmed loans and undisclosed moves as in Steps C and D, with the same opening and counts, but write no **Likely loan returns** section and leave out ", of which …": without the server's flag there is nothing to label a return.
-- When any undisclosed incoming move remains, add after the list: "Some of these may be loan returns; the data can't confirm it yet."
+- Write the answer as in Step D — confirmed loans only, and the same count line for the undisclosed moves — but write no **Likely loan returns** section: without the server's flag there is nothing to label a return.
 
 ## Step 2: Empty-resolver halt
 
