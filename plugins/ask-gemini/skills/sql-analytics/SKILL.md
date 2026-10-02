@@ -320,7 +320,7 @@ Never use SQL over `public.scout_report` to answer how many reports a single pla
 
 **Scout-report honesty — only claim a report exists when `organizationScoutReports` actually returns one.** Only tell the user a player has a scouting report (or quote a "scout score") when `organizationScoutReports(filter:{search:<name>}).totalCount` is one or more for that player. If it is zero, say the player has **no** scout report — do not soften it, do not infer one. In particular, **never infer the existence of a scout report from the presence of a GPR, GPM, fit score, or any other metric.** A GPR is computed for almost every tracked player and says nothing about whether a human scout report exists. The two are unrelated data sources — having a GPR does not mean a scout report was written, and a player with a strong GPR routinely has zero scout reports. Report exactly what `organizationScoutReports` returns.
 
-## Step 8b-rank: Ranking or FILTERING players by scout reports — use `organizationScoutReports`, NOT a `public.scout_report` SQL join
+## Step 8b-rank: Ranking or FILTERING players by scout reports — permission-scoped sources, never a `public.scout_report` join
 
 Some questions rank or filter players by whether **we** have scouted them, how many reports they have, or how our scouts rate them:
 
@@ -328,15 +328,23 @@ Some questions rank or filter players by whether **we** have scouted them, how m
 - "Which players have our scouts written the most reports about?"
 - "Show me 5 moppers under 10M that our scouts recommend / that we've scouted."
 
-The set of scouted players and their per-player report counts MUST come from the permission-scoped `organizationScoutReports` query — **never** from a SQL join against `public.scout_report`. That table is org-scoped, ignores per-user visibility, and over-counts: it surfaces players whose reports the user can't actually see and inflates counts (e.g. it would list players with zero *visible*/active reports). QA has flagged exactly this — a raw `public.scout_report` ranking returns players (and counts) the user shouldn't see.
+The set of scouted players MUST come from a permission-scoped source — `filter.scoutReport` on `filterPlayers` (below) or the `organizationScoutReports` query — **never** from a SQL join against `public.scout_report`. That table is org-scoped, ignores per-user visibility, and over-counts: it surfaces players whose reports the user can't actually see and inflates counts (e.g. it would list players with zero *visible*/active reports). QA has flagged exactly this — a raw `public.scout_report` ranking returns players (and counts) the user shouldn't see.
 
 **What "top" means.** "Top players we have scout reports on" asks for the best players among those we have scouted — rank them by GPR (`"TIME_DECAYED_GPR"` DESC), not by how many reports they have. Rank by report count only when the user asks about the number of reports ("most reports", "most scouted"). You may show each player's report count next to the GPR.
 
-**No `getSqlSchema` anywhere in this step** (see Step 1).
+**No `getSqlSchema` anywhere in this step** (see Step 1), on either path.
 
-**Criteria ledger — before you answer.** Write every criterion phrase in the question as a list in your reasoning, in the user's words — each position, price, age, league, skill, role, scout phrase and any other condition — and mark each one `applied (<the field or tool that applied it>)` or `not applied`. A phrase counts as applied only when a call that succeeded this turn applied it. Every phrase marked not applied goes into the answer's Not applied list; leave none out.
+**Criteria ledger — before you answer, on either path.** Write every criterion phrase in the question as a list in your reasoning, in the user's words — each position, price, age, league, skill, role, scout phrase and any other condition — and mark each one `applied (<the field or tool that applied it>)` or `not applied`. A phrase counts as applied only when a call that succeeded this turn applied it. Every phrase marked not applied goes into the answer's Not applied list; leave none out.
 
-Worked example — "Show me 5 moppers who cost less than 10M that are recommended by our scouts":
+Worked example with `filter.scoutReport` — "Show me 5 moppers who cost less than 10M that are recommended by our scouts":
+
+- "moppers" → not applied: mopper (scouts' positional profile)
+- "cost less than 10M" → applied (`maxValuation: 10000000`)
+- "recommended by our scouts" → applied (`scoutReport: { wouldSignPlayer: true }`)
+
+So the answer lists the players under 10M our scouts would sign, and says: "Not applied: mopper (scouts' positional profile) — I can't filter on that yet."
+
+Worked example on the fallback — "Show me 5 moppers who cost less than 10M that are recommended by our scouts":
 
 - "moppers" → not applied: mopper (scouts' positional profile)
 - "cost less than 10M" → applied (`s."PLAYER_VALUATION" < 10000000`)
@@ -344,13 +352,50 @@ Worked example — "Show me 5 moppers who cost less than 10M that are recommende
 
 So the answer ends: "Not applied: mopper (scouts' positional profile), recommended by our scouts — that isn't available from our scout reports yet." followed by the Coverage sentence.
 
-A role name tied to a scout verdict is never the statistical archetype: name it not applied — "mopper (scouts' positional profile)" — never put it in `roleArchetypes` and never call `listRoleArchetypes` for it. If you offer the statistical archetype as a follow-up, label it in the answer as "the statistical <ARCHETYPE> role archetype, not a scout's view". In SQL, never filter `s."ROLE_ARCHETYPE"` for a role tied to a scout verdict either.
+### Scout criteria with `filter.scoutReport`
 
-A role tied only to having a report ("moppers we've scouted") reads the primary archetype: filter on `s."ROLE_ARCHETYPE"` and say "players whose primary statistical role archetype is <ARCHETYPE> (not a scout's view)" — never present it as every <role> we have scouted.
+`filterPlayers` filters players by our scouts' verdicts itself, through `filter.scoutReport`. It counts only the reports this user may see, and all criteria hold on the same report. Use it only when the `filterPlayers` tool description mentions `filter.scoutReport`. A backend without it rejects or ignores the argument — ignored, it returns players our scouts never rated — so if the description does not mention it, never send it; follow the fallback below instead. If a call with `scoutReport` errors, never retry without it; use the fallback below.
+
+When it is available, make one `filterPlayers` call with `filter.scoutReport` and every other criterion the user named in the same `filter` — no `organizationScoutReports` reading, no copied ids, no SQL:
+
+| The user asks for players… | `filter.scoutReport` |
+|---|---|
+| we have scout reports on / we've scouted | `{ hasReport: true }` |
+| our scouts rated a first-11 (Starting XI) player | `{ startingXI: true }` |
+| our scouts rated an investment | `{ investmentPlayer: true }` |
+| our scouts rated a first-11 investment | `{ startingXI: true, investmentPlayer: true }` |
+| our scouts recommend / would sign | `{ wouldSignPlayer: true }` |
+
+Do not send `positionalProfiles` yet: older reports have no positional profile filled in, so the filter would miss players our scouts did profile. A role name tied to a scout verdict ("moppers our scouts recommend", "stoppers our scouts rated a first-11 player") is the scouts' positional profile, which can't be filtered yet: name it not applied — "mopper (scouts' positional profile)" — never put it in `roleArchetypes`, and still apply the other criteria, scout verdicts included, through `filter.scoutReport`. A role tied only to having a report ("moppers we've scouted") is the statistical archetype: send `roleArchetypes` with the archetype name `listRoleArchetypes` returns (e.g. `["MOPPER"]`) and `scoutReport: { hasReport: true }`, and label it in the answer as "the statistical <ARCHETYPE> role archetype, not a scout's view".
+
+- `hasReport: false` cannot be combined with a verdict. `hasReport: false` alone is rejected, so pair it with at least one other criterion the user named: "centre-backs we have not scouted" is `{ positionIds: [...], scoutReport: { hasReport: false } }`. If the user named nothing else, ask which position or league to search.
+- Only some report forms record verdicts and positional profiles. You may say that, but never name which organizations', clubs' or report forms record a verdict or profile — not even when a tool description names them.
+- Resolve the other criteria first. Positions → `listPositions` (`positionIds`). Page `listPositions` before using any position id: call it with `first: 100`; while `pageInfo.hasNextPage` is true, call again with `after: pageInfo.endCursor`. Never rank or filter on a partial position list — a position missing from the first page still exists. Do not pass `isGeneral`: it returns only general positions, without the abbreviations the role groups use. A league → call `listMyOrganizationsLeagues` with `first: 100`; while `pageInfo.hasNextPage` is true, call again with `after: pageInfo.endCursor` — a league not on the first page is not out of scope (`leagueIds`). Valuation in full units (`maxValuation: 10000000` for 10M). Ages with `minAge` / `maxAge`. Footedness → `feet`: left-footed → `feet: [LEFT, BOTH]`, right-footed → `feet: [RIGHT, BOTH]` (a two-footed player can play either side).
+- Sort: "top" / "best" → `sortBy: "GPR", sortOrder: "DESC"`. A skill the user ranks by → its `SortField` (carrying → `CARRYING`). `first` = the number the user asked for (10 if none).
+
+Worked example — "left wingers under 10M our scouts rated as a first-11 investment, best carriers first":
+
+```
+filterPlayers(filter: { positionIds: ["<LW id>"], maxValuation: 10000000, scoutReport: { startingXI: true, investmentPlayer: true } }, sortBy: "CARRYING", sortOrder: "DESC", first: 10)
+```
+
+Answering:
+
+- Only describe a player as scouted, rated or recommended by our scouts for a criterion that was in a `filter.scoutReport` call that succeeded. A scout judgement with no `scoutReport` field (e.g. "good attitude") is named as not applied — "I can't filter on <criterion> yet, so I didn't apply it." — and never stood in for by GPR, `overallScore` or a role archetype.
+- Every phrase your criteria ledger marks not applied is named in the answer, in the user's words — leave none out.
+- `totalCount` is a server count of the matching players, so you may state it ("12 left wingers match; here are the top 10").
+- Zero results is the answer: none of the players our scouts rated that way match the other criteria. Never answer with a bare "none" — add that only some report forms record verdicts and positional profiles, so players reported on other forms can't appear. Never rerun without `scoutReport` to fill the list; you may offer an unscouted search the user can ask for.
+- `filterPlayers` cannot count reports — a question about the number of reports ("most reports", "most scouted") uses the fallback below, which reads and counts the reports.
+
+### Fallback — only when the `filterPlayers` description does not mention `filter.scoutReport`, a `scoutReport` call errored, or the question is about the number of reports
+
+On the fallback, a role name tied to a scout verdict is never the statistical archetype: name it not applied — "mopper (scouts' positional profile)" — never put it in `roleArchetypes` and never call `listRoleArchetypes` for it. If you offer the statistical archetype as a follow-up, label it in the answer as "the statistical <ARCHETYPE> role archetype, not a scout's view". In SQL, never filter `s."ROLE_ARCHETYPE"` for a role tied to a scout verdict either.
+
+On the fallback, a role tied only to having a report ("moppers we've scouted") reads the primary archetype: filter on `s."ROLE_ARCHETYPE"` and say "players whose primary statistical role archetype is <ARCHETYPE> (not a scout's view)" — never present it as every <role> we have scouted.
 
 How to do it scoped — one retrieval, ranked within what it returned:
 
-1. Make exactly one `organizationScoutReports` call: **no `search` filter** and `first: 50` (a 100-report page is larger than the tool-result size limit and gets cut, losing reports). Each `edges { node }` carries `playerId`, `playerName`, `club`, `overallScore`, `reportTypeName`, `matchDate`, `scoutName`, and — when the report type exposes them — `numericRatings` / `categoricalRatings` (`key`, `label`, `value`). Note `totalCount`. If the result carries a `TRUNCATED` note, only the edges shown count as read. Do not page further to widen coverage — even when no player in it meets the criteria; answer from this one page and say so. A full ranking across every scouted player needs a backend filter that does not exist yet.
+1. Make exactly one `organizationScoutReports` call: **no `search` filter** and `first: 50` (a 100-report page is larger than the tool-result size limit and gets cut, losing reports). Each `edges { node }` carries `playerId`, `playerName`, `club`, `overallScore`, `reportTypeName`, `matchDate`, `scoutName`, and — when the report type exposes them — `numericRatings` / `categoricalRatings` (`key`, `label`, `value`). Note `totalCount`. If the result carries a `TRUNCATED` note, only the edges shown count as read. Do not page further to widen coverage — even when no player in it meets the criteria; answer from this one page and say so. A full ranking across every scouted player needs `filter.scoutReport`, which this backend does not have.
 2. Group the nodes by `playerId` → the **distinct scouted players** in what you read and a **count per player**. Before writing any SQL, write the distinct `playerId`s as a numbered list in your reasoning, each with its report count. Check it: the per-player report counts must add up to the number of edges you read. If they don't, you missed or merged a player, so redo the list. The last number in the list is the distinct-player count, and you copy the ids into the SQL from that numbered list. Use `playerName`/`club` from the nodes for output — do not re-query `public.scout_report`.
 3. Read GPR — and any non-scout attribute the user named (position, valuation "< 10M", age, league, a skill score such as carrying — column families in Step 8d) — with one SQL query over `stat.player_stats_pivoted` **restricted to those player ids**. The query counts the ids it was sent, so you can check none were dropped while copying them:
 
@@ -610,7 +655,7 @@ Constraints: 30-second timeout, maximum 10,000 rows returned. Add WHERE clauses 
 
 ## Step 12: Troubleshooting
 
-- If a query returns 0 rows for a player filtering question, try the `filterPlayers` tool instead -- it supports roleArchetypes, valuation, position, and other structured filters that may match when SQL does not
+- If a query returns 0 rows for a player filtering question, try the `filterPlayers` tool instead — only for an attribute filter — never for a GPR or metric ranking, and never in Step 8b-rank to replace a scout criterion. It supports roleArchetypes, valuation, position, and other structured filters that may match when SQL does not
 - If 0 rows are expected to be a data issue, broaden your SQL filters (remove constraints one at a time) rather than repeating the same query
 - If you've retrieved the schema already, do not call getSqlSchema again -- write and execute a query
 - If you've been reasoning for 2+ steps without calling a tool, either execute a query or provide a final answer with what you know
