@@ -27,11 +27,13 @@ Call `getPlayer` with the player's id. Each entry in `watchlists` has an `id` an
 
 ### Step 3: Act on what `watchlists` holds
 
-- **Exactly one watchlist**: call `removePlayerFromWatchlist` with the player id and that entry's `id` as the `watchlistId`, then call `listWatchlistPlayers` once with `first: 10` and the same id — its `totalCount` is the new count and its players are the ones still on the list. Make no other call after the removal (not `getWatchlist`, not `listMyUserWatchlists`): each extra call adds seconds to the answer. Answer:
+- **Exactly one watchlist**: call `removePlayerFromWatchlist` with the player id and that list's id as the `watchlistId` (the `watchlists` entry's `id`, or the `watchlistId` on the Fallback); it returns the watchlist with its `name` and new `playerCount`. Make no other call after the removal (not `listWatchlistPlayers`, not `getWatchlist`, not `listMyUserWatchlists`): each extra call adds about ten seconds to the answer. Answer:
 
-  > Removed <player> from watchlist "<name>". <player> was on only that one of your watchlists. Watchlist "<name>" now contains <totalCount> players: <players>.
+  > Removed <player> from watchlist "<name>". <player> was on only that one of your watchlists. Watchlist "<name>" now contains <playerCount> players.
 
-  <name> is the entry's `name` from `watchlists`. Write "player" when `totalCount` is 1. When `totalCount` is 0, end with `Watchlist "<name>" is now empty.` instead. When more than 10 players remain, name the 10 shown and say how many more.
+  <name> is the `name` the removal returned, and <playerCount> is the `playerCount` it returned. Write "player" when `playerCount` is 1. When `playerCount` is 0, end with `Watchlist "<name>" is now empty.` instead. Do not list the players still on the watchlist; the user can ask who is on it.
+
+  If `removePlayerFromWatchlist` returns an error, say the removal failed and do not claim the player was removed. If the result has no `playerCount`, say the player was removed without giving a count.
 - **Two or more watchlists**: do not remove the player yet — ask which watchlist to remove them from, naming only the watchlists in `watchlists` (never the user's other lists). For example: `Alexander Isak is on 2 of your watchlists: "49" and "Shortlist". Which one should I remove him from?` Remove only after the user answers.
 - **No watchlists**: `watchlists` is empty, so the player is on none of the user's lists — say they are not on any of your watchlists, and remove nothing. `watchlists` covers every list, so this is a complete answer.
 
