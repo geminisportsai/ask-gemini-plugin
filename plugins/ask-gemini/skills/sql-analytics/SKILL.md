@@ -338,11 +338,15 @@ The set of scouted players MUST come from a permission-scoped source — `filter
 
 Worked example with `filter.scoutReport` — "Show me 5 moppers who cost less than 10M that are recommended by our scouts":
 
-- "moppers" → not applied: mopper (scouts' positional profile)
+- "moppers" → applied (`scoutReport: { positionalProfiles: ["Mopper"] }`)
 - "cost less than 10M" → applied (`maxValuation: 10000000`)
 - "recommended by our scouts" → applied (`scoutReport: { wouldSignPlayer: true }`)
 
-So the answer lists the players under 10M our scouts would sign, and says: "Not applied: mopper (scouts' positional profile) — I can't filter on that yet."
+```
+filterPlayers(filter: { maxValuation: 10000000, scoutReport: { positionalProfiles: ["Mopper"], wouldSignPlayer: true } }, sortBy: "GPR", sortOrder: "DESC", first: 5)
+```
+
+So the answer lists the players under 10M our scouts profiled as moppers and would sign. If none match, it says so and adds that only some report forms record verdicts and positional profiles, so players reported on other forms can't appear.
 
 Worked example on the fallback — "Show me 5 moppers who cost less than 10M that are recommended by our scouts":
 
@@ -366,7 +370,7 @@ When it is available, make one `filterPlayers` call with `filter.scoutReport` an
 | our scouts rated a first-11 investment | `{ startingXI: true, investmentPlayer: true }` |
 | our scouts recommend / would sign | `{ wouldSignPlayer: true }` |
 
-Do not send `positionalProfiles` yet: older reports have no positional profile filled in, so the filter would miss players our scouts did profile. A role name tied to a scout verdict ("moppers our scouts recommend", "stoppers our scouts rated a first-11 player") is the scouts' positional profile, which can't be filtered yet: name it not applied — "mopper (scouts' positional profile)" — never put it in `roleArchetypes`, and still apply the other criteria, scout verdicts included, through `filter.scoutReport`. A role tied only to having a report ("moppers we've scouted") is the statistical archetype: send `roleArchetypes` with the archetype name `listRoleArchetypes` returns (e.g. `["MOPPER"]`) and `scoutReport: { hasReport: true }`, and label it in the answer as "the statistical <ARCHETYPE> role archetype, not a scout's view".
+A role tied to a scout verdict or a scout profile ("moppers our scouts recommend", "players our scouts profiled as #6") is the scouts' positional profile: send it as `positionalProfiles: ["<Canonical>"]` in the same `filter.scoutReport` as the verdicts — `scoutReport: { positionalProfiles: ["Mopper"], wouldSignPlayer: true }` — and never in `roleArchetypes`. Use the canonical profile name, mapping plurals and case: Goalkeeper, Defensive Right Back, Defensive Left Back, Inverted Right Back, Inverted Left Back, Mopper, Stopper, #6, #8, #10, Right Inside Forward, Left Inside Forward, Right Winger, Left Winger, False 9, Target Man, Pure 9, Rocket ("moppers" → "Mopper", "number 6" → "#6"). A plain position the user names ("left wingers", "goalkeepers") stays in `positionIds`; it is a profile only when the user ties it to how our scouts profiled the player. A role tied only to having a report ("moppers we've scouted") is the statistical archetype: send `roleArchetypes` with the archetype name `listRoleArchetypes` returns (e.g. `["MOPPER"]`) and `scoutReport: { hasReport: true }`, and label it in the answer as "the statistical <ARCHETYPE> role archetype, not a scout's view".
 
 - `hasReport: false` cannot be combined with a verdict. `hasReport: false` alone is rejected, so pair it with at least one other criterion the user named: "centre-backs we have not scouted" is `{ positionIds: [...], scoutReport: { hasReport: false } }`. If the user named nothing else, ask which position or league to search.
 - Only some report forms record verdicts and positional profiles. You may say that, but never name which organizations', clubs' or report forms record a verdict or profile — not even when a tool description names them.
@@ -383,11 +387,13 @@ Answering:
 
 - Only describe a player as scouted, rated or recommended by our scouts for a criterion that was in a `filter.scoutReport` call that succeeded. A scout judgement with no `scoutReport` field (e.g. "good attitude") is named as not applied — "I can't filter on <criterion> yet, so I didn't apply it." — and never stood in for by GPR, `overallScore` or a role archetype.
 - Every phrase your criteria ledger marks not applied is named in the answer, in the user's words — leave none out.
+- A scout positional profile has a field (`positionalProfiles`), so on this path it is always applied — never write "I can't filter on that yet" for it.
 - `totalCount` is a server count of the matching players, so you may state it ("12 left wingers match; here are the top 10").
 - Zero results is the answer: none of the players our scouts rated that way match the other criteria. Never answer with a bare "none" — add that only some report forms record verdicts and positional profiles, so players reported on other forms can't appear. Never rerun without `scoutReport` to fill the list; you may offer an unscouted search the user can ask for.
+- A `scoutReport` call that returns zero players did not error: answer from it, and never fall back to reading reports or list players it did not return.
 - `filterPlayers` cannot count reports — a question about the number of reports ("most reports", "most scouted") uses the fallback below, which reads and counts the reports.
 
-### Fallback — only when the `filterPlayers` description does not mention `filter.scoutReport`, a `scoutReport` call errored, or the question is about the number of reports
+### Fallback — only when the `filterPlayers` description does not mention `filter.scoutReport`, a `scoutReport` call errored (zero players is not an error), or the question is about the number of reports
 
 On the fallback, a role name tied to a scout verdict is never the statistical archetype: name it not applied — "mopper (scouts' positional profile)" — never put it in `roleArchetypes` and never call `listRoleArchetypes` for it. If you offer the statistical archetype as a follow-up, label it in the answer as "the statistical <ARCHETYPE> role archetype, not a scout's view". In SQL, never filter `s."ROLE_ARCHETYPE"` for a role tied to a scout verdict either.
 
