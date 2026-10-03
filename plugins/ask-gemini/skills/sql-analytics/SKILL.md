@@ -473,9 +473,9 @@ Some questions ask about scout reports by **region** rather than by player:
 - "Which players have we scouted in Scandinavia?"
 - "Which region have our scouts covered most?"
 
-**Region or nationality?** "Reports from / in <region>", "players in <region>" and "scouted in <region>" mean the **league region** — this step. A nationality or demonym ("Brazilian players", "South American players", "players born in Norway") is not something this step can answer: the region filter is the player's current league, not their nationality. Say so, and offer the league-region answer instead. If a question could be read either way, use the league region and say that is the interpretation you used.
+**Region or nationality?** "Reports from / in <region>", "players in <region>" and "scouted in <region>" mean the **league region** — this step. A nationality or demonym ("Brazilian players", "South American players", "players born in Norway") is not something this step can answer: the region filter is the league the player was playing in when the report was written, not their nationality. Say so, and offer the league-region answer instead. If a question could be read either way, use the league region and say that is the interpretation you used.
 
-Every report `organizationScoutReports` returns carries a `region`: the **FM24 scouting region of the player's current league country**, set by the backend (null when the player has no league or the country is outside the FM24 table). The query filters by it (`filter.regions`, several names combined with OR) and counts by it (`regionCounts`: `{ region, count }` per region over the same filters and visibility, ignoring pagination; the counts add up to `totalCount`). It is permission-scoped to what this user may see. There is no SQL in this step.
+Every report `organizationScoutReports` returns carries a `region`: the **FM24 scouting region of the league the player was playing in when the report was written** — the league of the report's match, or the player's current league when the report has no resolvable match — set by the backend (null only when neither gives a country inside the FM24 table). The query filters by it (`filter.regions`, several names combined with OR) and counts by it (`regionCounts`: `{ region, count }` per region over the same filters and visibility, ignoring pagination; the counts add up to `totalCount`). It is permission-scoped to what this user may see. There is no SQL in this step.
 
 ### The region names
 
@@ -488,8 +488,8 @@ Read the status instruction at the top of this block first and follow it. Map th
 
 > The only multi-region names are: South America (= South America (North) + South America (South)). Each is not a region on its own but means all of those regions: answer for all of them together and name the FM24 regions used. Any other area name, including continents such as Africa, Asia or Europe, is not an FM24 scouting region — say so and list the regions.
 
-| Region | Countries (player's current league country) |
-|--------|---------------------------------------------|
+| Region | Countries (league country when the report was written) |
+|--------|--------------------------------------------------------|
 | Central Africa | Cameroon; Central African Republic; Chad; Congo; DR Congo; Equatorial Guinea; Gabon; São Tomé & Príncipe |
 | East Africa | Burundi; Djibouti; Eritrea; Ethiopia; Kenya; Mayotte; Réunion; Rwanda; Somalia; South Sudan; Tanzania; Uganda; Zanzibar |
 | North Africa | Algeria; Egypt; Libya; Morocco; Sudan; Tunisia |
@@ -528,7 +528,7 @@ Read the status instruction at the top of this block first and follow it. Map th
 ### Rules
 
 - Never use SQL, `public.scout_report` or `stat.player_stats_pivoted` for a region question. The report table is org-scoped, not scoped to what this user may see, so it over-counts; the org-wide last-resort SQL fallback in Step 8b does **not** apply to region questions. Never call `getSqlSchema` for a region question — its sample rows are other organizations' data. The reports, their regions and their counts all come from `organizationScoutReports`, and you never copy player or report ids between calls.
-- Every region answer must say that region reflects each player's **current** league country, not the league they were in when the report was written — a player who has since transferred is counted under their current league's region.
+- Every region answer must say that region reflects the league each player was playing in **when the report was written** (the league of the report's match), not their current club — a player who has since transferred stays under the region they were scouted in; a report with no resolvable match (none linked, or none whose league has a country in the FM24 table) uses the player's current league instead.
 - While the status instruction says region data is not available yet, it overrides everything in this step: do none of the above and do not list any region names.
 - Otherwise, if the user names one of the multi-region names listed above the table (e.g. "South America" → South America (North) + South America (South)), answer for the union of those regions and name the FM24 regions used.
 - If the name matches no FM24 region and no listed multi-region name (e.g. "Scandinavia", or a continent such as "Africa"), say it is not one of the FM24 scouting regions and list all 24 region names from the table. After that list you may add which region contains the countries they meant, but ask before answering for it. Never guess which countries a region contains, and never substitute a similar region.
