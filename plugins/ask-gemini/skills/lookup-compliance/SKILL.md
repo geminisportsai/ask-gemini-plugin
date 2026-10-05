@@ -12,10 +12,12 @@ Use this skill when the user asks about their club's **Squad Cost Ratio**, wheth
 
 Use a different intent when:
 
-- The user wants players **ranked or listed by wage** → not this skill; it reads club-level figures only and returns no per-player wage.
+- The user wants players **ranked or listed by wage** → `rank_squad_wages`; this skill reads club-level figures only and returns no per-player wage.
 - The user asks about a **contract clause** (release clause, buyback, sell-on) → `lookup_contracts`.
 
 ## Step 1: One call, with no arguments
+
+If `complianceOverview` is not among your tools, say compliance figures aren't available yet and call no other tool (never SQL).
 
 Call `complianceOverview` **once, with no arguments at all**. It reads the viewer's own club, the actual figures (no scenario), as of now. Never pass `organizationId`, `scenarioId`, `asOf`, `draftActions` or `draftWageOverrides` — the server refuses them. If a call fails with an error naming one of them, retry once with no arguments.
 
