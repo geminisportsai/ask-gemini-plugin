@@ -470,6 +470,18 @@ If any check fails, fix the draft before you answer.
 
 A player with zero reports the user can see simply won't appear in `organizationScoutReports` — never re-introduce them from SQL.
 
+## Step 8b-disagree: Where our scouts disagree, across the organization — no player named
+
+"What players do our scouts disagree about and why?" names no player, so it reads the reports themselves. (Two or more named players use `compareOrganizationScoutReports`, Step 8b.)
+
+1. Make exactly one `organizationScoutReports` call: **no `search` filter**, `first: 50`, reading `playerId`, `playerName`, `club`, `scoutName`, `overallScore`, `reportTypeName`, `matchDate`, `numericRatings` and `categoricalRatings` (`key`, `label`, `value`). Note `totalCount` (<T>) and the number of edges you read (<N>). If the result carries a `TRUNCATED` note, <N> is the number of edges actually shown. Do not page further.
+2. Group the nodes by `playerId`. In your plan, list each player whose reports come from **two or more different `scoutName`s**, with each scout's `overallScore` and verdict-like ratings (a `categoricalRatings` entry such as a recommendation or Starting XI / investment rating).
+3. A player is a disagreement when those scouts' `overallScore`s differ, or the same rating key has different values across scouts. Compare like with like — the same `key`, never a rating from one report form against a different one.
+4. Whatever the outcome, the answer's first sentence says how much was read: "Among the first <N> of your <T> scout reports, …" (when <N> equals <T>, "Across your <T> scout reports, …"). Never word a result as covering every report unless <N> equals <T>.
+5. Answer with those players as the disagreements in the reports I read — say "in the reports I read", never "our scouts disagree about" as if org-wide — most disagreement first: the player's name, which scouts (by name) said what, and what differs — e.g. "Scout A gave 7, Scout B gave 4; A rated him a Starting XI player, B did not." Quote only values the reports returned. Never explain the disagreement beyond what the reports say, and never stand GPR or any other metric in for a scout's view.
+6. If no player in what you read has reports from two or more scouts, say so plainly — "Among the first <N> of your <T> scout reports, none of the players has reports from more than one scout, so there's no disagreement to show." If players have several scouts who all agree, say they agree.
+7. End with the Coverage sentence from Step 8b-rank step 5 ("Coverage: the <N> scout reports I could read (you have <T>).") and never state a count of players. Never use SQL over `public.scout_report` for this.
+
 ## Step 8b-region: Scout reports by REGION — `organizationScoutReports` with `filter.regions` and `regionCounts`
 
 Some questions ask about scout reports by **region** rather than by player:
