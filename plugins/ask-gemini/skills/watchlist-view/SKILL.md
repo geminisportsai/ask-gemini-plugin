@@ -19,7 +19,7 @@ Each entry is a *membership* record. The watchlist's name is `watchlist.name`, a
 
 If the user asks which watchlists they have ("Which watchlists do I have?", "What watchlists do I have?"), skip the matching below and do not ask which watchlist they mean: go straight to "Which watchlists" in Step 2 once every page is read.
 
-If the user says "default" ("my default watchlist") or names no watchlist ("my watchlist"), do not match a name: go to the two "No watchlist named" bullets below. Otherwise, match the name the user gave against `watchlist.name` with a case-insensitive comparison, ignoring a trailing "watchlist" or "list" in what the user typed ("my Pietra watchlist" means the watchlist named "Pietra").
+If the user says "default" ("my default watchlist") or names no watchlist ("my watchlist"), do not match a name: go to the two "No watchlist named" bullets below. Treat a plural or aggregate question that names no watchlist ("How many players do we have on watchlists?", "How many players are on our watchlists?", "How many players across my watchlists?") exactly like "my watchlist" and follow the two "No watchlist named" bullets below. Otherwise, match the name the user gave against `watchlist.name` with a case-insensitive comparison, ignoring a trailing "watchlist" or "list" in what the user typed ("my Pietra watchlist" means the watchlist named "Pietra").
 
 - **Exactly one match**: use it.
 - **More than one match** (for example "Pietra" and "Pietra U21" when the user typed "pietra" and no name matches exactly): ask which one they mean, naming each.
@@ -61,3 +61,4 @@ List each `watchlist.name` from every page of Step 1 with its `watchlist.playerC
 2. Don't stop at the first page of `listMyUserWatchlists` — the watchlist the user named may be on a later page.
 3. Don't pass the membership `id` — use `watchlistId`.
 4. Don't say you have no access to watchlist data — these tools are the access.
+5. Don't add up `playerCount` across watchlists or report a total across lists — the app keeps counts per watchlist, and a player can be on several lists. Answer as for an unnamed watchlist (Step 1); if the user explicitly asked for a total across lists, say in one short clause that counts are kept per watchlist before that answer.
