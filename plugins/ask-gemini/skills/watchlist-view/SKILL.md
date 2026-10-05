@@ -17,9 +17,9 @@ Call `listMyUserWatchlists` with `first: 50`, then page `listMyUserWatchlists` w
 
 Each entry is a *membership* record. The watchlist's name is `watchlist.name`, and `isDefault` marks the default watchlist. Pass the `watchlistId` to every other tool, never the membership `id`.
 
-If the user asks which watchlists they have ("Which watchlists do I have?", "What watchlists do I have?"), skip the matching below and do not ask which watchlist they mean: go straight to "Which watchlists" in Step 2 once every page is read.
+If the user asks which watchlists they have ("Which watchlists do I have?", "What watchlists do I have?", "How many watchlists do I have?"), skip the matching below and do not ask which watchlist they mean: go straight to "Which watchlists" in Step 2 once every page is read.
 
-If the user says "default" ("my default watchlist") or names no watchlist ("my watchlist"), do not match a name: go to the two "No watchlist named" bullets below. Treat a plural or aggregate question that names no watchlist ("How many players do we have on watchlists?", "How many players are on our watchlists?", "How many players across my watchlists?") exactly like "my watchlist" and follow the two "No watchlist named" bullets below. Otherwise, match the name the user gave against `watchlist.name` with a case-insensitive comparison, ignoring a trailing "watchlist" or "list" in what the user typed ("my Pietra watchlist" means the watchlist named "Pietra").
+If the user says "default" ("my default watchlist") or names no watchlist ("my watchlist"), do not match a name: go to the two "No watchlist named" bullets below. A plural or aggregate count question that names no watchlist ("how many players…": "How many players do we have on watchlists?", "How many players are on our watchlists?", "How many players across my watchlists?", "How many players are there across all my watchlists in total?") is not a default-list question: once every page is read, go to "Count across watchlists" in Step 2. A plural question about who is on the lists ("Who is on my watchlists?", "Show me the players on our watchlists") is not a count: treat it like "my watchlist" and follow the two "No watchlist named" bullets below. Otherwise, match the name the user gave against `watchlist.name` with a case-insensitive comparison, ignoring a trailing "watchlist" or "list" in what the user typed ("my Pietra watchlist" means the watchlist named "Pietra").
 
 - **Exactly one match**: use it.
 - **More than one match** (for example "Pietra" and "Pietra U21" when the user typed "pietra" and no name matches exactly): ask which one they mean, naming each.
@@ -51,9 +51,22 @@ If you stop paging before `pageInfo.hasNextPage` is false, for any reason, say s
 
 Only describe a player with fields this tool returned. Do not add a club, position or rating from memory.
 
+### Count across watchlists
+
+List each `watchlist.name` from every page of Step 1 with its `watchlist.playerCount`, quoted exactly as the tool returned it, and mark the default one. Make no extra call per list.
+
+- If the user has two or more watchlists, then make exactly one call: `listWatchlistPlayers` with `watchlistIds: [every watchlistId from Step 1]` and `first: 1`, and read its `totalCount`. That is the number of different players across the lists, already deduplicated by the app. Say "<totalCount> different players across your lists", and say once that a player on several lists is counted once.
+- Never add up the `playerCount` values and never present a sum — not as a total, not as "entries", not as a check. The only total is `totalCount`.
+- If the call fails or `totalCount` is missing, give the per-list counts and say the combined total isn't available right now. Do not compute one.
+- Never page players for this question: one call, `first: 1`, no `after`, and never list the players.
+- Never call `listWatchlistPlayers` without `watchlistId` or `watchlistIds`; the app refuses it.
+- If the user has exactly one watchlist, give its name and count with no total and make no `listWatchlistPlayers` call. If the user has no watchlists, say they have no watchlists.
+
+A singular, "default" or named watchlist question never takes this path and never gets a total across lists.
+
 ### Which watchlists
 
-List each `watchlist.name` from every page of Step 1 with its `watchlist.playerCount`, and mark the default one.
+List each `watchlist.name` from every page of Step 1 with its `watchlist.playerCount`, and mark the default one. For "How many watchlists do I have?", also give the number of lists from Step 1's `totalCount`, and never the player total across lists.
 
 ## Common pitfalls
 
@@ -61,4 +74,4 @@ List each `watchlist.name` from every page of Step 1 with its `watchlist.playerC
 2. Don't stop at the first page of `listMyUserWatchlists` — the watchlist the user named may be on a later page.
 3. Don't pass the membership `id` — use `watchlistId`.
 4. Don't say you have no access to watchlist data — these tools are the access.
-5. Don't add up `playerCount` across watchlists or report a total across lists — the app keeps counts per watchlist, and a player can be on several lists. Answer as for an unnamed watchlist (Step 1); if the user explicitly asked for a total across lists, say in one short clause that counts are kept per watchlist before that answer.
+5. Never compute a total yourself — no sum of `playerCount`, in any wording; the only total across lists is the tool's distinct `totalCount` (see "Count across watchlists").
