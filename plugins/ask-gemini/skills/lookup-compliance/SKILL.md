@@ -60,12 +60,18 @@ The result has `viewerTier`, `permittedQuantities` and `layers[]`; each layer ha
 
 ## Step 4: Answer the Squad Cost Ratio
 
+**The opening.** Open with the ratio itself: the value as a percentage, and when it is `INCOMPLETE`, "at least", that it is provisional and the inputs it leaves out (Step 3). The opening gives no verdict: no "over", "under", "breach" or "within" in it. The verdicts come in each rule's own part of the answer.
+
+**One position per rule.** Every evaluation carries `limitPosition` and `positionConfirmed`, worked out from that rule's own `comparator` and `deviation`: `OVER_CAP`, `UNDER_CAP`, `BELOW_FLOOR`, `AT_OR_ABOVE_FLOOR` or `NO_FIGURE` (no figure, so no verdict either way). Say over or under for each rule from its own `limitPosition`, once, in that rule's part of the answer — never from `state` alone, from another rule, or from `breachCount` or `alertCount`. `UNDER_CAP` is never "over", "a breach" or "in breach", whatever its `state` (AMBER is a warning); with `positionConfirmed` false it is "under the cap so far, but not confirmed" (Step 3).
+
+**Several rules in one sentence.** A sentence that covers several regime rules at once ("both regimes", "every regime", "all the caps") is allowed only when `squadCostRatioSummary.everyRegimeRuleOverCap` is true (the club is over the cap in every regime) or `everyRegimeRuleUnderCap` is true (under the cap in every regime, "so far" when any is not confirmed). Otherwise name each rule's position on its own ("over the UEFA cap; under the Premier League cap so far, not confirmed"). Never describe the Squad Cost Ratio with `breachCount` or `alertCount`: they count every rule in the result, including the club's own limits and other metrics.
+
 Lead with the CONTINENTAL and DOMESTIC layers. For each layer with a Squad Cost Ratio rule, give:
 
 - the metric name "Squad Cost Ratio" and the regime (`regimeName`);
 - the ratio (`value`) as a percentage;
 - the limit (`threshold`) as a percentage;
-- the state, in words (within the limit, over the limit, or for `AMBER` over or under the cap as the deviation shows);
+- its position, in words, from its `limitPosition` (over the limit, or under it — so far, not confirmed, when `positionConfirmed` is false);
 - how far from the limit, in percentage points, from `deviation` (for example "+4.2 pts over the 70% cap", or "3.2 pts under the 70% cap" only when `completeness` is `COMPLETE`; an `INCOMPLETE` figure under its cap is under it so far, not confirmed, as Step 3 says).
 
 Never call the Squad Cost Ratio a budget.
