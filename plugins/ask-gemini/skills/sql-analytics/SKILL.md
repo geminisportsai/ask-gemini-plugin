@@ -288,7 +288,7 @@ organizationScoutReports(filter: { search: "<player full name>" }) { totalCount 
 
 1. Pass the player's name as the user gave it (e.g. "Marcus Rashford") as `filter.search`.
 2. **`totalCount`** is how many scout reports that player has — report it directly for "how many scout reports for X". It already matches the player page (e.g. Rashford → 4, Mbappé → 3).
-3. To list or summarize the reports, read `edges { node { ... } }` from the same query. Never fall back to `executeSqlQuery` over `public.scout_report` for a per-player question.
+3. To list or summarize the reports, read `edges { node { ... } }` from the same query, every page, and follow **How many reports support each rating point** at the end of this step. Never fall back to `executeSqlQuery` over `public.scout_report` for a per-player question.
 4. **Comparing two or more players' scout reports** ("compare the scouting reports for X and Y", "what do our scouts disagree about between X and Y") — use **`compareOrganizationScoutReports`** with ALL the players' names in one call: `compareOrganizationScoutReports(playerNames: ["Haaland", "Mbappe"])`. It returns one group per player (in order), each with its own `search`, `totalCount`, and `reports` — including players with zero reports. This is the deterministic way to compare; it cannot collapse names together or drop a player.
    - **One name per array element** — `["Haaland", "Mbappe"]`, never one combined string like `["Haaland and Mbappe"]` (that matches nobody).
    - **Report each group independently.** A group with `totalCount: 0` means that player has no reports — say so for that player and still report the others. Never collapse to "neither has reports" when one group is non-empty.
@@ -322,6 +322,16 @@ WHERE sr.archived_at IS NULL          -- exclude archived
 Never use SQL over `public.scout_report` to answer how many reports a single player has — that is the per-player case above and must go through `organizationScoutReports`. The fallback also never applies to a question asked **by region** ("reports from South America", "players in Scandinavia") — that always goes through Step 8b-region.
 
 **Scout-report honesty — only claim a report exists when `organizationScoutReports` actually returns one.** Only tell the user a player has a scouting report (or quote a "scout score") when `organizationScoutReports(filter:{search:<name>}).totalCount` is one or more for that player. If it is zero, say the player has **no** scout report — do not soften it, do not infer one. In particular, **never infer the existence of a scout report from the presence of a GPR, GPM, fit score, or any other metric.** A GPR is computed for almost every tracked player and says nothing about whether a human scout report exists. The two are unrelated data sources — having a GPR does not mean a scout report was written, and a player with a strong GPR routinely has zero scout reports. Report exactly what `organizationScoutReports` returns.
+
+### How many reports support each rating point
+
+When you summarize what the reports on one player say, every rating point carries how many of the reports you read support it. T is `totalCount`; R is the number of reports you actually read.
+
+- **Read every page:** while `pageInfo.hasNextPage` is true, or a `message` says reports were left out, call again with the same arguments and `after: pageInfo.endCursor`. R counts the reports across every page you read. If you stop before reading all T, say how many you read — "I read R of your T reports on <player>." — and never extrapolate to the reports you did not read.
+- Before writing, list each report you read in your plan, one line each with its scout, date and ratings (or "no ratings"); every N you state is counted from that list.
+- Ratings are `overallScore`, `numericRatings` and `categoricalRatings` (`label`, `value`). Follow each rating point with how many of the reports you read support it: "(N of the R reports read)", or "(N of the R reports read, T in all)" when R is less than T. For example: "rated a Starting XI player (3 of the 8 reports read)". Quote rating values as the reports give them; never average or sum them.
+- Say how many of the reports you read carry any rating ("K of the R reports read carry ratings"). If none does, say the reports read carry no ratings and give no rating point.
+- A point taken from written text (`writtenAssessment`, comments or notes) carries no count, and is never presented as a rating.
 
 ## Step 8b-rank: Ranking or FILTERING players by scout reports — permission-scoped sources, never a `public.scout_report` join
 
@@ -394,9 +404,23 @@ Answering:
 - `totalCount` is a server count of the matching players, so you may state it ("12 left wingers match; here are the top 10").
 - Zero results is the answer: none of the players our scouts rated that way match the other criteria. Never answer with a bare "none" — add that only some report forms record verdicts and positional profiles, so players reported on other forms can't appear. Never rerun without `scoutReport` to fill the list; you may offer an unscouted search the user can ask for.
 - A `scoutReport` call that returns zero players did not error: answer from it, and never fall back to reading reports or list players it did not return.
-- `filterPlayers` cannot count reports — a question about the number of reports ("most reports", "most scouted") uses the fallback below, which reads and counts the reports.
+- `filterPlayers` cannot count reports — a question about the number of reports ("most reports", "most scouted") uses **Report counts with `playerCounts`** below.
 
-### Fallback — only when the `filterPlayers` description does not mention `filter.scoutReport`, a `scoutReport` call errored (zero players is not an error), or the question is about the number of reports
+### Report counts with `playerCounts` — "most reports", "most scouted"
+
+Use this for a question about the number of reports — "which players have our scouts written the most reports about?", "the wingers we have the most scouting reports about" — when the `organizationScoutReports` tool description mentions `playerCounts`. If it does not, use the fallback below.
+
+1. Make one `organizationScoutReports` call with **no `search` filter** and `first: 1`. Read `totalCount` (T: every report this user may see) and `playerCounts` (`{ playerId, playerName, count }` per player, highest first, over every report, not only the page). Never count `edges` nodes and never page through reports for a count: `playerCounts` is the count. Skip the entry whose `playerId` is null (reports with no player).
+2. A position, league or other player attribute in the question narrows the players — never the counts. Resolve positions with `listPositions` (paged as in the rules above), then:
+   - If the `filterPlayers` tool description mentions `filter.scoutReport`: call `filterPlayers(filter: { positionIds: [...], scoutReport: { hasReport: true } }, sortBy: "GPR", sortOrder: "DESC", first: 100)` with any other attribute the user named in the same `filter`. While `pageInfo.hasNextPage` is true, call again with `after: pageInfo.endCursor` — read every page, never only the first.
+   - Otherwise: one `executeSqlQuery` over `stat.player_stats_pivoted` restricted to the `playerCounts` player ids, with the attribute as a `WHERE` condition (a position on `s."PRIMARY_POSITION"`), built like the fallback's step 3 query. Its `ids_sent` check is a hard stop: `ids_sent` must equal the number of `playerCounts` entries with a `playerId`. The query only decides which players stay: every count still comes from `playerCounts`, never from SQL.
+
+   Keep the `playerCounts` entries whose `playerId` equals the `id` of a player you read — match by id, never by name. With no attribute to narrow by, keep every entry.
+3. Rank the kept entries by `count`, highest first, and take the top N (the number the user asked for; 10 if none). Players with the same count share a rank. Quote each player's `count` exactly as `playerCounts` returned it.
+4. The counts cover every report, so word the answer as complete: "Across your <T> scout reports, the <position>s with the most reports are …". Never write "first <N> of your <T>", "the reports I could read" or a Coverage sentence on this path, and never state a count you worked out yourself, such as a sum of counts.
+5. If no entry is kept, say that none of the players your scouts reported on matches, naming the criterion — never list a player the narrowing did not return.
+
+### Fallback — only when the `filterPlayers` description does not mention `filter.scoutReport`, a `scoutReport` call errored (zero players is not an error), or the question is about the number of reports and the `organizationScoutReports` tool description does not mention `playerCounts`
 
 On the fallback, a role name tied to a scout verdict is never the statistical archetype: name it not applied — "mopper (scouts' positional profile)" — never put it in `roleArchetypes` and never call `listRoleArchetypes` for it. If you offer the statistical archetype as a follow-up, label it in the answer as "the statistical <ARCHETYPE> role archetype, not a scout's view". In SQL, never filter `s."ROLE_ARCHETYPE"` for a role tied to a scout verdict either.
 

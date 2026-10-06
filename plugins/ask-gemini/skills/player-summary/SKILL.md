@@ -57,11 +57,21 @@ Also call `getPlayer` if you need the full player record (positions list, team r
 
 The organization's scouts write their own reports. When the question is about **scout opinion** — "what do my scouts think of X", "how did we scout X" — those reports are the **primary source**, not bio data or categorical scores.
 
-- Call `organizationScoutReports(filter: { search: "<player name>" })`. Use the reports' ratings (offensive/defensive/athleticism/game-intelligence), notes, and recommendations.
+- Call `organizationScoutReports(filter: { search: "<player name>" })` and read every page (below). Use the reports' ratings (offensive/defensive/athleticism/game-intelligence), notes, and recommendations.
 - If `totalCount` is 0, say plainly that your scouts have not written any reports on this player yet — then optionally offer the data-driven profile.
 - **Never fabricate scout opinion.** Do not relabel bio data, GPR, or categorical scores as "Scout Assessment" / "our scouts rated…" when no report was read. Scout language is only warranted when backed by an actual report.
 
 For a general profile request, reading scout reports is optional enrichment; include a brief scout note only if reports exist.
+
+### How many reports support each rating point
+
+When you summarize what the reports on one player say, every rating point carries how many of the reports you read support it. T is `totalCount`; R is the number of reports you actually read.
+
+- **Read every page:** while `pageInfo.hasNextPage` is true, or a `message` says reports were left out, call again with the same arguments and `after: pageInfo.endCursor`. R counts the reports across every page you read. If you stop before reading all T, say how many you read — "I read R of your T reports on <player>." — and never extrapolate to the reports you did not read.
+- Before writing, list each report you read in your plan, one line each with its scout, date and ratings (or "no ratings"); every N you state is counted from that list.
+- Ratings are `overallScore`, `numericRatings` and `categoricalRatings` (`label`, `value`). Follow each rating point with how many of the reports you read support it: "(N of the R reports read)", or "(N of the R reports read, T in all)" when R is less than T. For example: "rated a Starting XI player (3 of the 8 reports read)". Quote rating values as the reports give them; never average or sum them.
+- Say how many of the reports you read carry any rating ("K of the R reports read carry ratings"). If none does, say the reports read carry no ratings and give no rating point.
+- A point taken from written text (`writtenAssessment`, comments or notes) carries no count, and is never presented as a rating.
 
 ## Step 5: Read internal notes and pipeline status
 
@@ -107,6 +117,7 @@ When the user asks for a verdict / scout opinion / "what do we know about X" syn
 - Write a **single cohesive prose paragraph, 3–5 sentences** — no bullet points, numbered lists, or section headers. (Exception: the no-source fallback below is exempt from this length — use its exact two-sentence wording.)
 - Cover: key strengths, weaknesses, concerns, and any transfer intelligence found in the notes (release clauses, availability, agent conversations). Any release-clause mention must be attributed as unverified note chatter (e.g. "a note mentions a possible release clause of...") — never present it as a confirmed contractual term; authoritative clause amounts come only from the lookup-contracts skill.
 - If multiple scouts reported, weave in where they agree or disagree.
+- Each rating point carries its count from Step 4 ("N of the R reports read"); a point from written text carries none.
 - If there are no scout reports but notes exist: summarize the notes and mention that no formal scouting reports have been submitted yet.
 - If there are neither reports nor notes, say so plainly:
   > Your organization has no scout reports or notes on <player> yet, so I can't give you a scouting verdict. I can put together a data-driven profile instead if you'd like.
