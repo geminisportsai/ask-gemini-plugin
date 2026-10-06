@@ -39,10 +39,22 @@ The result has `viewerTier`, `permittedQuantities` and `layers[]`; each layer ha
 - `AMBER` is a warning, not a position: usually past `amberThreshold` and under the cap, but on a warn-only rule `AMBER` may already be over the cap. So for `AMBER` read the sign of `deviation` against `comparator` and say "over the cap" or "under the cap, close to it" from that, never "close to the limit" by default.
 - `comparator` says how `value` must relate to `threshold`: `LTE`/`LT` is a cap (at or below), `GTE`/`GT` a floor (at or above).
 - `deviation` is the signed `value - threshold`, in the rule's `unit` (for `PERCENTAGE`, percentage points). Read its sign against `comparator`: for a cap, a negative deviation is the headroom under the limit and a positive one is the amount over it.
+- When `completeness` is `COMPLETE`, `value` includes every input: never call it provisional, and give no line about missing or excluded inputs.
 - When `completeness` is `INCOMPLETE`, `value` is a lower bound: some inputs are not yet included, so the true figure can only be higher. Put "at least" before the figure and call it provisional.
+- When `completeness` is `INCOMPLETE`, name every `excludedInputs[].quantity` of that evaluation in the Compliance tab's words, as not yet included, after the figure — for example "It does not yet include transfer fee amortisation and agent fee amortisation." If layers exclude different inputs, each layer names its own. Never say only "some inputs".
+- `INCOMPLETE` with an empty `excludedInputs`: no input is missing, only some months of the assessment period, so say the figure does not yet cover the whole assessment period and name no inputs.
+- The Compliance tab's words for each quantity:
+  - `PLAYER_WAGE_ANNUAL`: wages for some players
+  - `TRANSFER_FEE_AMORTISATION_ANNUAL`: transfer fee amortisation
+  - `AGENT_FEE_AMORTISATION_ANNUAL`: agent fee amortisation
+  - `LOAN_FEE_ANNUAL`: loan fees
+  - `TRANSFER_SPEND`: transfer spend
+  - `NET_BOOK_VALUE`: net book value
+  - `PLAYER_AGE`: player age
+  - any other quantity: its name in plain lower-case words. Never show a quantity code such as `TRANSFER_FEE_AMORTISATION_ANNUAL` to the user.
 - `INCOMPLETE` and the state is `RED` on a cap: the lower bound is already past the cap, so this is a confirmed breach whose true size is at least the figure. Say it is over the cap, for example "over the cap (at least 74.2%, provisional figure)", and give the points over as "at least". Do not withhold the breach.
-- `INCOMPLETE` and the state is `AMBER` or `GREEN` on a cap: the figure is under the cap so far, not confirmed, because the missing inputs could push it over. Never call it within the limit as a final answer.
-- If `missingInputs` is empty, say only that some inputs are not yet included, and never name specific missing inputs. When it has entries, name every one.
+- `INCOMPLETE` and the state is `AMBER` or `GREEN` on a cap: the figure is under the cap so far, not confirmed, because the missing inputs could push it over. Say it in this shape, naming that layer's excluded inputs: "under the cap so far (by 3.2 points), but not confirmed, because the figure leaves out transfer fee amortisation". Never write a bare "under the cap by 3.2 pts" for an `INCOMPLETE` figure, and never call it within the limit as a final answer.
+- `missingInputs` is only for a figure that could not be computed (`PARTIAL`, `NOT_CONFIGURED`), never for an `INCOMPLETE` one; name its entries in the same words.
 - `PARTIAL` state means inputs are missing: give no figure and no verdict (not within, not over); say it is incomplete and name every entry in `missingInputs`.
 - `NOT_CONFIGURED` state means there is no figure yet: say no figure is available yet and name every entry in `missingInputs`. Never report it as 0% or 0.
 
@@ -54,7 +66,7 @@ Lead with the CONTINENTAL and DOMESTIC layers. For each layer with a Squad Cost 
 - the ratio (`value`) as a percentage;
 - the limit (`threshold`) as a percentage;
 - the state, in words (within the limit, over the limit, or for `AMBER` over or under the cap as the deviation shows);
-- how far from the limit, in percentage points, from `deviation` (for example "+4.2 pts over the 70% cap" or "3.2 pts under the 70% cap").
+- how far from the limit, in percentage points, from `deviation` (for example "+4.2 pts over the 70% cap", or "3.2 pts under the 70% cap" only when `completeness` is `COMPLETE`; an `INCOMPLETE` figure under its cap is under it so far, not confirmed, as Step 3 says).
 
 Never call the Squad Cost Ratio a budget.
 
