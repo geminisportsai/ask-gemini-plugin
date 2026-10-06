@@ -14,7 +14,7 @@ Do **not** use this skill for:
 
 - "Which teams fit X" → that is `player_team_fit`.
 - "Rank players by metric Y" with no anchor → that is `rank_players`.
-- "Compare X and Y" with two named players → that is `compare_players`.
+- "Compare X and Y" with two named players → that is `compare_players`. A similarity score between two named players stays here — see "Similarity score between two named players" below.
 
 ## Step 1: Resolve the anchor player to an ID — and verify it's the right one
 
@@ -83,7 +83,7 @@ The `listSimilarPlayers` nodes are scalars-only (similarity score, no valuation/
 2. **Relative caps** ("cheaper than Saka", "younger than De Bruyne"): call `getPlayerBioDataByPlayerId` on the **anchor only** (a single call) to read its valuation/age, then pass that number as `filter.maxValuation` / `filter.maxAge`.
 3. Present the qualifier explicitly ("valued below Saka's €74M tag").
 
-**Never** loop `getPlayerBioDataByPlayerId` over every returned candidate to filter by valuation/age — the `filter` does it server-side, and per-candidate enrichment is slow enough to **time the request out**. The only legitimate `getPlayerBioDataByPlayerId` call here is the single anchor lookup for a relative threshold. And **never** answer a "cheaper/younger" request with "valuation/age data isn't available" — pass the cap to `filter` instead.
+**Never** loop `getPlayerBioDataByPlayerId` over every returned candidate to filter by valuation/age — the `filter` does it server-side, and per-candidate enrichment is slow enough to **time the request out**. The only legitimate `getPlayerBioDataByPlayerId` calls here are the single anchor lookup for a relative threshold and the single lookup on Y for a similarity score between two named players (below). And **never** answer a "cheaper/younger" request with "valuation/age data isn't available" — pass the cap to `filter` instead.
 
 ## Step 5: Handle empty / null results
 
@@ -95,6 +95,21 @@ If `listSimilarPlayers` returns an empty array, tell the user no similar players
 - Include the candidate's club, age, and (when relevant to the user's filter) valuation in the row.
 - Pass through whatever similarity score the tool returns — do not invent one and do not normalize it to a different scale.
 - If the user named a constraint (cheaper, younger, in-league), confirm it in one sentence: "All five are valued below Pedri's €100M tag" / "All from Premier League sides".
+
+## Similarity score between two named players
+
+Use this path when the user names **two** players and asks how similar they are, e.g. "What is the similarity score of William Saliba and Ezri Konsa?" or "How similar are Saka and Madueke?". Call the first-named player X and the second Y.
+
+The score belongs to the pair: it does not change with the filter, it is the same from X to Y as from Y to X, and it is the figure the Similar Players tab shows. But `listSimilarPlayers` returns at most 50 players, so Y is often not in X's unfiltered list. Narrow the candidate pool around Y until Y comes back:
+
+1. Call `searchPlayers` for both players and verify each match as in Step 1.
+2. Call `getPlayerBioDataByPlayerId` on Y (one call) to read Y's `age` and `minutesTotal`.
+3. Call `listSimilarPlayers` with X's `playerId` and `filter`: `minAge: <Y's age>`, `maxAge: <Y's age + 1>`, `minMinutesPlayed: <Y's minutesTotal rounded down − 1>`, `maxMinutesPlayed: <Y's minutesTotal rounded up + 1>`. Each minimum must be strictly less than its maximum, or the call fails. Leave out a pair of fields when Y's bio has no value for it.
+4. Look for Y's player id in the returned list (never match by name). If Y is not there, call again with only `minMinutesPlayed: <Y's minutesTotal rounded down − 50>`, `maxMinutesPlayed: <Y's minutesTotal rounded up + 50>`; if Y is still not there, call once with no `filter`.
+5. When Y is returned, report its `similarityScore`. It is already a percentage (65.6 means 66%), not a 0–1 fraction: "Ezri Konsa is 66% similar to William Saliba." You may follow with a short profile comparison if it helps.
+6. When none of those calls returns Y, say that the two players are not among each other's similar players, and offer a side-by-side profile comparison instead.
+
+Never report a score unless `listSimilarPlayers` returned Y with it: never estimate, interpolate, or borrow another player's score, and never compute one yourself. Never say there is no similarity score — the product has one. Never `executeSqlQuery` for this.
 
 ## Common pitfalls
 
