@@ -334,7 +334,7 @@ The set of scouted players MUST come from a permission-scoped source — `filter
 
 **No `getSqlSchema` anywhere in this step** (see Step 1), on either path.
 
-**Criteria ledger — before you answer, on either path.** Write every criterion phrase in the question as a list in your reasoning, in the user's words — each position, price, age, league, skill, role, scout phrase and any other condition — and mark each one `applied (<the field or tool that applied it>)` or `not applied`. A phrase counts as applied only when a call that succeeded this turn applied it. Every phrase marked not applied goes into the answer's Not applied list; leave none out.
+**Criteria ledger — before you answer, on either path.** Write every criterion phrase in the question as a list in your plan, in the user's words — each position, price, age, league, skill, role, scout phrase and any other condition — and mark each one `applied (<the field or tool that applied it>)` or `not applied`. A phrase counts as applied only when a call that succeeded this turn applied it. Every phrase marked not applied goes into the answer's Not applied list; leave none out.
 
 Worked example with `filter.scoutReport` — "Show me 5 moppers who cost less than 10M that are recommended by our scouts":
 
@@ -402,7 +402,7 @@ On the fallback, a profile-named role tied only to having a report ("moppers we'
 How to do it scoped — one retrieval, ranked within what it returned:
 
 1. Make exactly one `organizationScoutReports` call: **no `search` filter** and `first: 50` (a 100-report page is larger than the tool-result size limit and gets cut, losing reports). Each `edges { node }` carries `playerId`, `playerName`, `club`, `overallScore`, `reportTypeName`, `matchDate`, `scoutName`, and — when the report type exposes them — `numericRatings` / `categoricalRatings` (`key`, `label`, `value`). Note `totalCount`. If the result carries a `TRUNCATED` note, only the edges shown count as read. Do not page further to widen coverage — even when no player in it meets the criteria; answer from this one page and say so. A full ranking across every scouted player needs `filter.scoutReport`, which this backend does not have.
-2. Group the nodes by `playerId` → the **distinct scouted players** in what you read and a **count per player**. Before writing any SQL, write the distinct `playerId`s as a numbered list in your reasoning, each with its report count. Check it: the per-player report counts must add up to the number of edges you read. If they don't, you missed or merged a player, so redo the list. The last number in the list is the distinct-player count, and you copy the ids into the SQL from that numbered list. Use `playerName`/`club` from the nodes for output — do not re-query `public.scout_report`.
+2. Group the nodes by `playerId` → the **distinct scouted players** in what you read and a **count per player**. Before writing any SQL, write the distinct `playerId`s as a numbered list in your plan, each with its report count. Check it: the per-player report counts must add up to the number of edges you read. If they don't, you missed or merged a player, so redo the list. The last number in the list is the distinct-player count, and you copy the ids into the SQL from that numbered list. Use `playerName`/`club` from the nodes for output — do not re-query `public.scout_report`.
 3. Read GPR — and any non-scout attribute the user named (position, valuation "< 10M", age, league, a skill score such as carrying — column families in Step 8d) — with one SQL query over `stat.player_stats_pivoted` **restricted to those player ids**. The query counts the ids it was sent, so you can check none were dropped while copying them:
 
    ```sql
@@ -421,7 +421,7 @@ How to do it scoped — one retrieval, ranked within what it returned:
 
    **`no_gpr` check — a hard rule.** Every row carries `no_gpr`, the number of returned players with no GPR. If `no_gpr` is greater than 0, the answer must contain "Some reported players have no GPR yet and aren't ranked." — whatever else you leave out.
 
-   **`ids_sent` check — a hard stop.** Before using any row, compare `ids_sent` with the distinct-player count from step 2 (the last number in your numbered list) — write both numbers in your reasoning as `ids_sent = <x>, list = <y>`. If they differ, you MUST NOT answer yet:
+   **`ids_sent` check — a hard stop.** Before using any row, compare `ids_sent` with the distinct-player count from step 2 (the last number in your numbered list) — write both numbers in your plan as `ids_sent = <x>, list = <y>`. If they differ, you MUST NOT answer yet:
    1. Compare the ids in the query you ran with your numbered list, and find every id that is missing.
    2. Re-run the same query with every id from the numbered list — the full list, not only the missing ids.
    3. Check `ids_sent` again. Answer only once `ids_sent` equals the step-2 count.
@@ -676,7 +676,7 @@ Constraints: 30-second timeout, maximum 10,000 rows returned. Add WHERE clauses 
 - If a query returns 0 rows for a player filtering question, try the `filterPlayers` tool instead — only for an attribute filter — never for a GPR or metric ranking, and never in Step 8b-rank to replace a scout criterion. It supports roleArchetypes, valuation, position, and other structured filters that may match when SQL does not
 - If 0 rows are expected to be a data issue, broaden your SQL filters (remove constraints one at a time) rather than repeating the same query
 - If you've retrieved the schema already, do not call getSqlSchema again -- write and execute a query
-- If you've been reasoning for 2+ steps without calling a tool, either execute a query or provide a final answer with what you know
+- If you've gone 2+ steps without calling a tool, either execute a query or provide a final answer with what you know
 - If a tool returns an error, try a different approach: simpler parameters, a different tool, or a modified query
 
 ## Step 13: Present Results
