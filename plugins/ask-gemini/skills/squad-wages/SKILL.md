@@ -24,7 +24,7 @@ Call `getSquadPlayersByPosition` **once, with no arguments at all**. Never pass 
 
 Never answer from earlier messages in the conversation or from memory: every name and amount in the answer comes from this turn's result. One tool call, then the answer. There is no other source for wages — never fall back to SQL or another tool.
 
-The result holds `firstTeam[]`; each player has `name`, `position`, `age` and `wage`. Rank only the `firstTeam` players.
+The result holds `firstTeam[]`; each player has `name`, `position`, `age` and `wage`. Rank only the `firstTeam` players. Some results also carry count fields; they are used only in the last section, "Counts from the tool". Until then, write the answer as if there are none: Steps 3 and 4 alone give a complete answer.
 
 ## Step 2: Access refused
 
@@ -81,6 +81,7 @@ For a short list, never write "top N", "top 9" or "the N highest" anywhere in th
 
 `position` is a side-specific code (the live codes include LCB, RCB, LDM, RCM, CAM and RCF). Group the codes with this map:
 
+<!-- Backend twin: backend-v2 `src/mcp-server/execution/squad-wage-counts.ts`, `SQUAD_POSITION_GROUPS`, groups positions the same way to compute `positionGroupCounts` (SE-8854). This map, its role-letter fallback and that constant must change in lockstep, or the quoted group counts stop matching the groups listed here. -->
 
 - Goalkeepers: GK
 - Defenders: LB, RB, LCB, CB, RCB, LWB, RWB
@@ -114,3 +115,15 @@ In either case, name no player and give no amount — whether the call was refus
 - Never show a figure the tool did not return.
 - Describe a player only with `name`, `position`, `age` and `wage`. Never add a club, rating, nationality, contract detail or valuation from memory.
 - Never show IDs, field names or the tool name to the user.
+
+## Counts from the tool (only when the result has them)
+
+Only if the result contains `wageTiers`, `visibleWageCount` and `firstTeamCount`; otherwise skip this whole section. If `firstTeamCount`, `visibleWageCount` or `wageTiers` is missing from the result, skip this whole section: the count-free wording of Steps 3 and 4 is the whole answer, and you state no count.
+
+When all three are there, the result carries exact counts: `firstTeamCount` (first-team players), `visibleWageCount` (those with a visible wage), `wageTiers` (each distinct wage with the `count` of visible wages equal to it, highest first) and `positionGroupCounts` (one entry per position group with its `count`, `visibleWageCount` and `wageTiers`). They change Steps 3 and 4 only as below; every other rule there still applies. Never count players in `firstTeam` yourself: every count you state is a field the tool returned, copied as is. The only other number you may state is <listed>, how many of the players you listed earn the cut-off wage: <listed> is the one number you may work out from your own list, and it never exceeds N. If `visibleWageCount` is 0, no wage is visible: Step 6 applies.
+
+- Call a top N "the top N of the M first-team players with a visible wage", where M is `visibleWageCount`.
+- Only when `visibleWageCount` differs from `firstTeamCount`, add "<visibleWageCount> of your <firstTeamCount> first-team players have a visible wage." Never subtract one field from the other.
+- In place of the fixed tie sentence, find the `wageTiers` entry whose `wage` equals the cut-off wage (the wage of the last player listed). If its `count` is more than the number of listed players on that wage, end the list with "<count> players earn €X a year; <listed> of them are shown above." <count> is that entry's `count`, copied as is; <listed> is how many of the players you listed earn €X. Never imply that a listed player out-earns a tied player who was left out, and never name the players not shown.
+- With the count fields, report missing wages only through the visible-share sentence above, and name no one.
+- Quote `positionGroupCounts` only when the request matches exactly one of the five groups (goalkeepers, defenders, midfielders, wingers or forwards); a narrower, wider or mixed request ("centre-backs", "full-backs", "central midfielders", "attackers", "defenders and midfielders") uses the count-free position wording of Step 4. Never add groups together. For a request matching one group, take the counts from the `positionGroupCounts` entry for that group: call the list "the top N of the <group `visibleWageCount`> defenders in your first team with a visible wage" (or the group asked for), and quote the cut-off tie from the group's `wageTiers` exactly as above.
