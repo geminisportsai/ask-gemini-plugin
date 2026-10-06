@@ -37,22 +37,50 @@ The tool returns players in no particular order: the list is not sorted by wage.
 - A player whose `wage` is null is not ranked. Keep only players whose `wage` is a number. Sort them by `wage`, highest first.
 - If the user names a number ("top 3", "five highest paid"), list exactly that many. Otherwise default to the top 10. Never list players beyond the N requested, including lower earners. If fewer players have a visible wage than that, list them all and say these are all the first-team players with a visible wage.
 - Number the list by rank. Tied players share a rank number ("=4."), and the next rank counts the players above it; never number tied players one after another as if they were ranked. For each player give the name, the position in words ("centre-back", "right-back"), or omit it, and the annual wage.
+- A player's rank is 1 + the number of players paid more than them; tied players share that rank, marked "=". Count the players above, never the distinct wages above. For example, after a 7-way tie:
+
+  1. Player A — centre-back — €8.5M a year
+  =2. Player B — right-back — €4.2M a year
+  =2. Player C — left-back — €4.2M a year
+  =2. Player D — centre-back — €4.2M a year
+  =2. Player E — right-back — €4.2M a year
+  =2. Player F — left-back — €4.2M a year
+  =2. Player G — centre-back — €4.2M a year
+  =2. Player H — left-back — €4.2M a year
+  9. Player I — right-back — €1.8M a year
+
+  Player I is 9., not 3. or 8.: eight players are paid more (1 + 8 = 9).
+- Every ranked answer (a default top 10, a top N the user named, or a position list) says the list comes from the user's first team, in its opening sentence: "Here are the top 3 earners in your first team:". Never open with only "Your top 3 highest paid players are:".
 - Never present a top N as the whole squad: call it "the top N of your first team".
 - Players with the same wage are tied: say so, and never imply one out-earns the other.
+- No numbers in prose: outside the numbered list lines, write no number except wage amounts and the N the user asked for. Never state how many players are tied, even among the players listed ("seven defenders tied" is a count): the shared rank number shows the tie. Never state a squad size, how many players have a wage, how many share the cut-off wage, or how many have no visible wage, and do not restate rank numbers in prose. Never state a total or count of players beyond the N listed; counts are left out by design.
 - If any player beyond the N listed shares the cut-off wage, end the list with this fixed sentence, word for word (translated only into the user's language): "At least one more player outside this list also earns €X a year." Put no number or quantity word in it — no "40", "47", "more than", "many", "several" or "others" — however many players share the wage, and never change "one" to another number. Never name them. Never imply that a listed player out-earns a tied player who was left out. For example, a top 3 where more than three players share the top wage:
 
   =1. Player A — centre-back — €8.5M a year
   =1. Player B — central midfielder — €8.5M a year
   =1. Player C — centre-forward — €8.5M a year
   At least one more player outside this list also earns €8.5M a year.
-- Mention a missing wage only for a player whose `wage` field is literally null in the result: name those players ("No visible wage for A and B"). A low wage is not a missing wage. Never mention, name or comment on players below the cut-off or beyond the N listed — not even to say their wage is missing. (A player whose `wage` is null, and the fixed tie sentence above, are the only exceptions.) Never state a number of null wages, and never claim a missing wage the result does not show. If more than five players have no visible wage, say some first-team players have no visible wage and name none. (When every wage is null, Step 6 applies instead.)
-- Never state a total or count of players beyond the N listed: no squad size, no number of players with a wage, no number of players on the cut-off wage. Counts are left out by design.
+- A missing wage is a `wage` field that is literally null in the result. A low wage is not a missing wage. If the result has null wages, say "Some first-team players have no visible wage" and name those players ("No visible wage for A and B"). Never mention, name or comment on players below the cut-off or beyond the N listed — not even to say their wage is missing. (A player whose `wage` is null, and the fixed tie sentence above, are the only exceptions.) Never state a number of null wages, and never claim a missing wage the result does not show. (When every wage is null, Step 6 applies instead.)
 
 ## Step 4: One position
 
-When the user asks about one position or position group ("highest paid defenders", "top 3 earning strikers"), filter `firstTeam` on the returned `position` first, then rank with the same rules as Step 3, including ties and missing wages. In a position answer, call the list "the top N defenders in your first team" (or the group asked for) and give no position totals. If fewer players in that group have a visible wage than N, list them all and say these are all the <group, e.g. defenders> in your first team with a visible wage; never call it a top N.
+When the user asks about one position or position group ("highest paid defenders", "top 3 earning strikers"), filter `firstTeam` on the returned `position` first, then rank with the same rules as Step 3, including ties, missing wages and no numbers in prose. Call the list "the top N defenders in your first team" (or the group asked for) and give no position totals.
+
+If fewer players in that group have a visible wage than N, list them all and say these are all the <group, e.g. defenders> in your first team with a visible wage; never call it a top N. The answer's first line is then exactly this sentence (with the group asked for), and the ranked list follows it:
+
+  These are all the defenders in your first team with a visible wage:
+
+For a short list, never write "top N", "top 9" or "the N highest" anywhere in the answer, and give no number of players in the lead sentence. When every player in the group is listed, no tie sentence applies. For example, when the group runs out before N:
+
+  These are all the defenders in your first team with a visible wage:
+
+  1. Player A — centre-back — €8.5M a year
+  =2. Player B — right-back — €4.2M a year
+  =2. Player C — left-back — €4.2M a year
+  4. Player D — centre-back — €1.8M a year
 
 `position` is a side-specific code (the live codes include LCB, RCB, LDM, RCM, CAM and RCF). Group the codes with this map:
+
 
 - Goalkeepers: GK
 - Defenders: LB, RB, LCB, CB, RCB, LWB, RWB
