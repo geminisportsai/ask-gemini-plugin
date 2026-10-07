@@ -76,7 +76,7 @@ The metrics available through it:
 - **deep progressions** (`DEEP_PROGRESSIONS_90`), **non-penalty shots** (`NP_SHOTS_90`), **on-ball value** (`OBV_90`)
 - **possession-adjusted tackles / interceptions** (`PADJ_TACKLES_90`, `PADJ_INTERCEPTIONS_90`, combined `PADJ_TACKLES_AND_INTERCEPTIONS_90`), **ball recoveries** (`BALL_RECOVERIES_90`), **aggressive actions** (`AGGRESSIVE_ACTIONS_90`)
 
-These are scoped to the player's current league for the season; `_90` values are per-90, ratios are 0–1 proportions. The only metrics genuinely **not** in the data are physical/GPS tracking (sprints, high-speed running, top speed, distance covered) — say those are unavailable rather than substituting.
+These are scoped to the player's current league for the season; `_90` values are per-90, ratios are 0–1 proportions. The only metrics genuinely **not** in the data are GPS tracking metrics (sprints, high-speed running, PSV-99 / top speed, distance covered) — say the metric the user named is unavailable and offer the player's Physical Score instead (Gemini's overall physical rating, which is in the data), rather than substituting a provider metric.
 
 ## Step 3: Resolve the season scope
 

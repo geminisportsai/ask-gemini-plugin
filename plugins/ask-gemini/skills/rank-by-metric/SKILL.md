@@ -112,11 +112,13 @@ The advanced metrics (from `XA_90` down) are StatsBomb-360 stats scoped to the p
 
 **Do NOT invent or substitute metrics.** Only the metrics in the table above are supported. If the user names something outside it, say it's not available rather than silently ranking by a different metric. The one category genuinely **NOT in the data**:
 
-- high-intensity **sprints**, **high-speed running**, top speed, distance covered, or any physical / GPS tracking metric — we do not ingest these.
+- high-intensity **sprints**, **high-speed running**, PSV-99 / top speed, distance covered, or any other GPS tracking metric. For these, say the metric the user named is not available and offer the Physical Score ranking for the same group: "I can rank them by Physical Score, Gemini's overall physical rating, instead — want that?" Do not rank by another metric (aggressive actions, pressures, dribbles, carries) in its place, and do not answer with a list of provider metrics to choose from. If the user also asked for metrics in the table (crossing accuracy, errors), rank by those, say the tracking metric is not available, and still offer the Physical Score ranking for the same group. A percentage threshold on a ratio is a 0–1 value: "crossing accuracy above 25%" → `{ metric: CROSSING_RATIO, min: 0.25 }`.
+
+**The Physical Score is a Gemini score, not a provider metric** — `rankPlayersByMetric` cannot rank by it, but it is in the data. If the user asked for physical scores, "most physical" or "fastest", never call physical scores unavailable: say this ranking runs on the Physical Score and offer it ("Want me to rank them by Physical Score?").
 
 (xA, chances created / key passes, crossing accuracy, and errors **are** available now — use the table above; don't tell the user they're missing.)
 
-If the only metric the user named is unavailable, tell them which metrics *are* available rather than guessing.
+If the only metric the user named is unavailable and it is not a physical one (covered above), tell them which metrics *are* available rather than guessing.
 
 ## Step 3: Thresholds and direction
 
