@@ -118,6 +118,14 @@ If the question filters by our scouts' opinion — "recommended by our scouts", 
 
 Never read scout reports through a SQL join over `scout_report` — it ignores per-user report permissions. A role archetype such as `MOPPER` (from `listRoleArchetypes`) is a statistical profile, not a scout's positional view. If you use it for a role the user named, label it as statistical rather than scout-based.
 
+### Transfer-fee criteria — not available yet
+
+A criterion on a past transfer — "completed a transfer for more than 20M", "moved for more than 10M in the past two years", "exclude players who moved for more than X" — cannot be applied: no filter here reads transfer fees or transfer history, and a market valuation (`minValuation` / `maxValuation`) is not a transfer fee, so never use it in its place.
+
+- Start the answer with: "I can't search transfers by fee yet, so I couldn't apply "[the transfer criterion as the user wrote it]"."
+- Apply the other criteria as usual and list those players under that sentence; never show a transfer fee for any of them, and never say or imply that any of them moved for that fee.
+- End with: "I can show one club's transfers, with each fee as listed, for a window you choose — which club and window would you like?"
+
 ## Step 3: Execute Search
 
 ### Text Search

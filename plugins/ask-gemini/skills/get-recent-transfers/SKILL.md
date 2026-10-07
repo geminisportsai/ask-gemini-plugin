@@ -2,14 +2,29 @@
 name: get-recent-transfers
 description: >
   Look up transfer history or recent transfer activity — a single player's
-  transfers, a named club's recent in/out moves, or transfers in a league
-  within a window. Use when the user asks about transfers, signings, or
-  career club history.
+  transfers or a named club's recent in/out moves. It cannot search transfers
+  by fee or across a whole league yet. Use when the user asks about transfers,
+  signings, or career club history.
 ---
 
 # Get Recent Transfers
 
-Use this skill when the user asks about **transfers** — a single player's transfer history, a club's recent signings or sales, or transfers within a league in a given window. This intent is distinct from `lookup_contracts` (which covers active contract clauses) and from `summarize_player` (which covers overall profile).
+Use this skill when the user asks about **transfers** — a single player's transfer history, or one club's recent signings or sales. This intent is distinct from `lookup_contracts` (which covers active contract clauses) and from `summarize_player` (which covers overall profile).
+
+## Step 0: Questions this skill cannot answer yet — a fee threshold or a whole league
+
+Transfers can be looked up for one player or one club. There is no search by transfer fee and no search across a whole league yet. Check the question for these before calling any tool:
+
+- **A fee threshold** — transfers or players filtered by a fee: "bought or sold for more than 10M", "moved for more than 10M in the past five years", "completed a transfer for more than 20M", "exclude players who moved for more than X", "signings over €30M".
+- **A whole league** — transfers across a league, country or competition rather than one club: "transfers in the Hungarian league", "how many players were bought or sold in NB I", "Premier League transfers this summer".
+
+When the question has either and is not about one or a few named players, one named club, or the user's own club ("we", "our"), reply with exactly this, and call no tool:
+
+> I can't search transfers by fee or across a whole league yet. I can show one club's transfers, with each fee as listed, for a window you choose — for example, a club's signings last summer. Which club and window would you like?
+
+- Never call `listTransfersByTeamId` for several clubs to build a league answer, and never answer from a handful of clubs as if they were the league.
+- Never give a count, a total, a fee or a list of transfers for a league or for a fee threshold, and never estimate one.
+- When a fee threshold comes with one or a few named players ("Has Rice ever moved for more than £100M?", "Show Pedri's transfers over €20M"), one named club ("Arsenal's signings over €20M this summer") or the user's own club ("Our signings over €20M"), do not give the reply above. Open with "I can't filter transfers by fee yet, so here are all of [X]'s transfers, with each fee as listed:" — [X] is the player, the club or the user's club, with the window after "transfers" when the question gives one — and answer as usual (**Step 1** for a player, **Step 1b** for a club) — every row, none dropped, counted or totalled by fee.
 
 ## Step 1: Pick the right tool path from the user's phrasing
 
@@ -144,7 +159,7 @@ Example shape (placeholders, not real players):
 
 ## Step 2: Empty-resolver halt
 
-For any path that depends on `listMyOrganizationsTeams`, `listMyOrganizationsEligibleTeams`, or `listMyOrganizationsLeagues`, follow the standard halt rule.
+For any path that depends on `listMyOrganizationsTeams` or `listMyOrganizationsEligibleTeams`, follow the standard halt rule. A league-wide question never reaches a resolver: it gets the **Step 0** reply.
 
 If `listMyOrganizationsTeams` returns empty for an "our / my team" prompt, respond with this exact message and stop:
 
@@ -154,17 +169,7 @@ If `listMyOrganizationsEligibleTeams` has no match for the named club, respond:
 
 > That team isn't in the leagues your organization has added. Please add the relevant league in your organization settings and try again.
 
-`listMyOrganizationsLeagues` is paged (20 per page by default): call it with `first: 100` and, while `pageInfo.hasNextPage` is true, call again with `after: <pageInfo.endCursor>`. A league that is not on the first page is not out of scope.
-
-If `listMyOrganizationsLeagues` returns empty for a league-scoped prompt, respond:
-
-> Your organization doesn't have any leagues configured. Please add a league in your organization settings and try again.
-
-If the named league isn't in the resolver's results after every page has been read, respond:
-
-> Your organization doesn't have the [league name] league configured. Please add it in your organization settings and try again.
-
-Do not silently drop the filter. Do not substitute another club or league. Do not fall back to SQL.
+Do not silently drop the filter. Do not substitute another club. Do not fall back to SQL.
 
 ## Step 3: Resolve the time window (per-player paths only)
 
@@ -227,3 +232,4 @@ Pass through the loan / permanent / free-transfer distinction when the data has 
 5. **Don't infer a window the user didn't ask for.** Default to last 12 months only when the user gave no temporal cue; do not silently truncate "all transfers" to last 12 months.
 6. **Don't invent fees.** Undisclosed fees stay undisclosed.
 7. **Don't pick the wrong player.** If `searchPlayers` returns a player whose attributes contradict the prompt, re-search with a more specific query before continuing.
+8. **Don't fan out club by club across a league.** Calling `listTransfersByTeamId` once per club is not a league search, and a few clubs are not the league. A league-wide or fee-threshold question gets the **Step 0** reply.
