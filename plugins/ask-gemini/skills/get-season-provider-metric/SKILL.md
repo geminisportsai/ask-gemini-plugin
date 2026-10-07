@@ -2,13 +2,14 @@
 name: get-season-provider-metric
 description: >
   Look up a season-aggregate third-party provider metric (xG, npxG, xA, key
-  passes, pass completion %, PPDA, etc.) for a specific player. Use when the
-  user asks for a season total or per-90 average of a provider stat.
+  passes, pass completion %, PPDA, etc.) or a player's minutes in a season, for
+  one or more named players. Use when the user asks for a season total or per-90
+  average of a provider stat, or how many minutes a player played in a season.
 ---
 
 # Get Season Provider Metric
 
-Use this skill when the user wants a **season-level** third-party provider metric for a specific named player — xG, expected goals, npxG, xA, expected assists, key passes, progressive passes, pass completion %, PPDA, deep completions, etc. The result is one player + one metric, scoped to a season (or to "this season" / "last season").
+Use this skill when the user wants a **season-level** third-party provider metric for a specific named player — xG, expected goals, npxG, xA, expected assists, key passes, progressive passes, pass completion %, PPDA, deep completions, etc. It also answers how many minutes a named player played in a season ("How many minutes did Walker, Balogun and Frimpong play in the 2025/26 season?"). The result is one player + one metric, or several named players' minutes, scoped to a season (or to "this season" / "last season").
 
 Use a different intent when:
 
@@ -54,8 +55,20 @@ Users phrase provider metrics inconsistently. Map the user's phrasing to a canon
 | "tackles + interceptions", "T+I" | tackles_plus_interceptions |
 | "pressures", "pressing events" | pressures |
 | "aerial duels won", "aerial wins" | aerial_duels_won |
+| "minutes", "minutes played", "how many minutes did X play" | `minutesTotal` (see **Minutes** below) |
 
 If the user names a metric not in this table, pass through their phrasing to `listSeasonProviderMetrics` — the tool's filter parameter will surface whether that metric exists. Do not silently substitute a different metric.
+
+### Minutes
+
+"How many minutes did X play in <season>" is answered from the season row of `listSeasonProviderMetrics` (Steps 3 and 5). Read it like this:
+
+- `minutesTotal` is the player's minutes in that season summed across all competitions (league, cups, Europe). It is the answer to a minutes question.
+- `minutesSource` is `PROVIDER`, `TRANSFERMARKT` or `MIXED`. Say where the minutes come from in plain words: `PROVIDER` → "from match data", `TRANSFERMARKT` → "from Transfermarkt", `MIXED` → "from match data and Transfermarkt". Never name the match-data provider, a table or a field in the answer.
+- Per-90 values and the other metrics come from one competition, `leagueId`, and `leagueMinutes` is that sample. When `leagueMinutes` differs from `minutesTotal`, say the per-90 is from that competition, e.g. "per 90 in the Premier League (1,178 of his 1,733 minutes this season)".
+- A `TRANSFERMARKT`-only row has minutes and no provider metrics: give the minutes, and say the per-90 metrics are not available for that season.
+
+For several named players, resolve each one (Step 1) and call `listSeasonProviderMetrics` once per player with the same `seasonId`. Call `listSeasons` once for all of them, then per player one `searchPlayers` and one `listSeasonProviderMetrics` — no `getPlayer`, and no second `listSeasons`. If you run out of steps before every player is read, name each player you did not look up. Answer with one line per player — the player, the season's minutes and the source — so every player the user named is in the answer, including one with no row (say so for that player).
 
 ### Advanced StatsBomb-360 metrics live in a different tool
 
@@ -84,24 +97,27 @@ These are scoped to the player's current league for the season; `_90` values are
 
 Resolve the season with the dedicated `listSeasons` tool:
 
-1. Call `listSeasons`. Each row is shaped `{ id, displayYear, startYear, endYear }`. **Two kinds of rows exist and they are NOT interchangeable:**
-   - **Split (European-football) seasons** span two calendar years: `endYear === startYear + 1` (e.g. `{ displayYear: "2025", startYear: 2025, endYear: 2026 }` is the **2025/26** season). These are the seasons player provider metrics (xG, xA, passing, etc.) are reported against.
-   - **Single calendar-year seasons** have `startYear === endYear` (e.g. `{ displayYear: "2026", startYear: 2026, endYear: 2026 }`). These are calendar-year competitions/aggregates and usually have **no** European-football provider data — picking one for "this season" returns an empty result and a wrong answer.
+1. Call `listSeasons`. Each row is shaped `{ id, displayYear, startYear, endYear }`. Two kinds of rows exist:
+   - **Split (European-football) seasons** span two calendar years: `endYear === startYear + 1` (e.g. `{ displayYear: "2025", startYear: 2025, endYear: 2026 }` is the **2025/26** season).
+   - **Single calendar-year seasons** have `startYear === endYear` (e.g. `{ displayYear: "2026", startYear: 2026, endYear: 2026 }`), for calendar-year leagues (MLS, Brazil, the Nordic leagues).
+   - A split season and the calendar year it ends in are the same season: the 2025/26 row (`startYear 2025, endYear 2026`) and the calendar `2026` row (`startYear 2026, endYear 2026`) return the same `listSeasonProviderMetrics` row. Prefer the split row, and label the season by its split span ("2025/26"), never by the calendar year.
    - **`displayYear` is a single year string (e.g. `"2025"`), NOT `"2024/25"`.** Note two different rows can share the same `displayYear` (one split, one calendar) — disambiguate by `startYear`/`endYear`, never by `displayYear` alone.
 
 2. Match the user's phrasing to one season and take its `id`:
 
 | User phrasing | Which season to pick from `listSeasons` |
 |---|---|
-| "this season", "this year", no temporal phrase | The **most recent split season** — the row with the greatest `endYear` among rows where `endYear === startYear + 1`. (As of 2026 that is `startYear 2025, endYear 2026` = the 2025/26 season — **not** the calendar-year `2026` row.) |
-| "last season", "last year", "previous season" | The **next-most-recent split season** (the split season with the second-greatest `endYear`). |
-| Named season ("2024/25", "2023/24 season") | The split row whose `startYear`/`endYear` matches the named span (e.g. "2024/25" → `startYear 2024, endYear 2025`). |
-| Named single year only ("in 2026", "the 2026 season") | Only then consider the calendar-year row (`startYear === endYear`) for that year, if one exists. |
+| "this season", "this year", no temporal phrase | The split season in progress on the current date (a season starts in July): from July, the split row whose `startYear` is the current year; before July, the one whose `endYear` is the current year. |
+| "last season", "last year", "previous season" | The split season before that one. |
+| Named season ("2024/25", "24/25", "2024-25", "2023/24 season") | The split row whose `startYear`/`endYear` matches the named span (e.g. "2024/25" → `startYear 2024, endYear 2025`). |
+| Named single year only ("in 2026", "the 2026 season") | The split season ending in that year (2025/26 for 2026) — the same season as the calendar `2026` row. |
 | "career", "all time", "over his career" | Multiple seasons — don't pin one `seasonId`; return per-season rows, not a single aggregate (the tool may not pre-aggregate career totals). |
 
 3. Pass that resolved `id` (UUID) as `seasonId` to `listSeasonProviderMetrics` in Step 5.
 
-**Report the season you actually used, honestly.** State the resolved season in your answer using its real span (e.g. "in the 2025/26 season"). Never claim you used a season you didn't resolve, and never label the calendar-year `2026` row as "2025/26". If `listSeasonProviderMetrics` returns no row for the season you resolved, say the metric isn't available for that player in that season (Step 7) — do **not** silently report a different season's number, and do **not** claim "I don't have that data in the system" if you simply picked the wrong (calendar-year) season: re-resolve to the most recent **split** season first.
+**Calendar-year leagues.** The data does not say whether a league plays a split season or a calendar year, so these rules assume a split season. When the season came from a bare year ("2026") or from "this season" or "last season", state the assumption once in the answer, with the label built from the resolved row: "<startYear>/<last two digits of endYear> season (for calendar-year leagues such as MLS, that's the <endYear> season)". For example, the row `startYear 2026, endYear 2027` gives "2026/27 season (for calendar-year leagues such as MLS, that's the 2027 season)". A season the user named ("2025/26", "25/26", "2026") is used as named, under the one-season rule — never re-interpreted, and no fallback to another season. When "this season" resolved to the split season in progress and the player has no row for it, do not stop at "no data": say that season has no data for the player yet, say a calendar-year league's current season is the previous season here — the split row whose `endYear` is the resolved row's `startYear` — and offer it. For a single-player minutes question, also read that previous season (`listSeasonProviderMetrics` with its `seasonId`) and show it, labelled from its own row: "<startYear>/<last two digits of endYear> season (the <endYear> season in a calendar-year league)".
+
+**Report the season you actually used, honestly.** State the resolved season in your answer by its split span (e.g. "in the 2025/26 season"). Never claim you used a season you didn't resolve. If there is no row for the season you resolved, say so. Never report another season's number in its place — not the latest season's, and not a career total.
 
 If you cannot call `listSeasons`, or the user's named season doesn't match any returned row, tell the user you can't resolve that season rather than guessing — do **not** fall back to calling `listSeasonProviderMetrics` with no season and then report whatever comes back as if it were the requested season.
 
@@ -123,9 +139,11 @@ Call with the resolved `playerId`, the resolved metric name, and the resolved se
 
 ## Step 6: Sample-size context — always show minutes
 
-Provider metrics are misleading without minutes played. **Always** include the player's minutes for that season in the response (if the tool returns it in the same row, surface it; if not, mention that the metric is over the player's available minutes for that season). One-line example:
+Provider metrics are misleading without minutes played. **Always** include the player's minutes for that season (`minutesTotal`) in the response and, when it differs, the minutes behind the per-90 (`leagueMinutes`, see **Minutes** in Step 2). One-line example:
 
 > Saka's xG this season: **8.4** (per 90: **0.42** over **1,797 minutes**).
+
+For a minutes question, the minutes are the answer: give `minutesTotal` with its source (see **Minutes** in Step 2).
 
 If minutes are very low (under ~500 in a top-five league season), prepend a one-line caveat: "Small sample — Saka has only played 410 minutes this season, so per-90 figures are noisy."
 
@@ -138,7 +156,7 @@ If minutes are very low (under ~500 in a top-five league season), prepend a one-
 
 - One sentence with the headline number, the per-90 in parentheses if relevant, and the minutes for context.
 - If the user asked for multiple metrics on the same player, render as a 2-column table (metric, value).
-- Don't mention table names, provider names, or implementation details. Speak about the metric in plain terms.
+- Don't mention table names, the match-data provider's name, or implementation details. Speak about the metric in plain terms. Naming the source class of minutes ("from match data", "from Transfermarkt") is fine — see **Minutes** in Step 2.
 
 ## Common pitfalls
 
@@ -147,3 +165,4 @@ If minutes are very low (under ~500 in a top-five league season), prepend a one-
 3. **Don't divide by minutes yourself.** Per-90 is a specific computation; only report it if the tool returned it.
 4. **Don't drop minutes context.** A 0.4 xG/90 means very different things at 200 minutes vs 2,500 minutes — surface the sample size.
 5. **Don't use `executeSqlQuery`.** No SQL fallback. If the tool can't answer the question, surface that to the user.
+6. **Don't report a career total as a season's minutes.** `getPlayer`'s `bioData.minutesTotal` is a **career** total. Never present it as one season's minutes. A season's minutes are the season row's `minutesTotal`.

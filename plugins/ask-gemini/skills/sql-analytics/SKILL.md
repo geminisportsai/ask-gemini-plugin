@@ -97,7 +97,7 @@ Available columns (all UPPERCASE, must be double-quoted):
 | `"MIN_GEMINI_PLAYER_VALUATION"` / `"MAX_GEMINI_PLAYER_VALUATION"` | Bottom and top of the Gemini Player Valuation range, Gemini's own valuation (Step 8f) |
 | `"FAIR_FEE"` / `"EXPECTED_FEE"` | **Legacy** — never select or quote (Step 8f) |
 | `"NATIONALITY"` | Player nationality |
-| `"MINUTES_TOTAL"` | Total minutes played |
+| `"MINUTES_TOTAL"` | **Career** total minutes, all seasons and competitions — never one season's minutes (Step 8h) |
 | `"PHYSICAL_SCORE"` | Physical Score — Gemini's overall physical rating, 0–100, as the app shows it. Stored as **text**: cast it (`s."PHYSICAL_SCORE"::numeric`) to sort or compare, and leave out a blank `''` or `'NaN'` value, in any case or padding, first (Step 8g filter) — `''` fails the cast and `'NaN'` sorts above every number. Null for players without one. Use it for physical, speed and running questions (Step 8g). |
 
 **Columns that do NOT exist:** `PLAYER_NAME`, `GOALS`, `ASSISTS`, `RATING`. Do not use these. This is about SQL columns; it does not apply to the `PLAYER_NAME` sort of `organizationScoutReports`.
@@ -786,6 +786,19 @@ WHERE s."PLAYER_ID" = '<named-player-uuid>'::uuid
 If the score is blank or `'NaN'`, say they have no Physical Score. Otherwise they have a score but fall outside the filtered group: say so, naming the filter that excludes them when you know it (for example "he is 28, so he is outside the under-26 group"), and never rank them from a second query over different players.
 - A follow-up that adds a filter ("only wingers younger than 26") re-runs the same query with the Physical Score sort and every earlier filter, plus the new one.
 - One named player's Physical Score: resolve the player (Step 2a) and `SELECT s."PHYSICAL_SCORE"` for that id; a blank or `'NaN'` value means the player has no Physical Score.
+
+## Step 8h: A named player's minutes in a season — `listSeasonProviderMetrics`, not SQL
+
+"How many minutes did X play in 2025/26 / this season / last season" is not in SQL: `"MINUTES_TOTAL"` is a career total, and `getPlayer`'s `bioData.minutesTotal` is a **career** total. Never present it as one season's minutes.
+
+1. Resolve each named player to an id (Step 2a).
+2. Resolve the season with `listSeasons` (rows are `{ id, displayYear, startYear, endYear }`; match on `startYear`/`endYear`, never on `displayYear`; a split season and the calendar year it ends in are the same season, so "2026" is 2025/26 — use the split row and label it "2025/26"; "this season" is the split season in progress on the current date), then call `listSeasonProviderMetrics` with the player's id and that `seasonId`, once per player.
+3. The row's `minutesTotal` is the player's minutes in that season summed across all competitions. Give it with its source in plain words from `minutesSource`: `PROVIDER` → "from match data", `TRANSFERMARKT` → "from Transfermarkt", `MIXED` → "from match data and Transfermarkt".
+4. No row for that player and season: say so for that player. Never give another season's number or a career total in its place.
+
+**Calendar-year leagues.** The data does not say whether a league plays a split season or a calendar year, so these rules assume a split season. When the season came from a bare year ("2026") or from "this season" or "last season", state the assumption once in the answer, with the label built from the resolved row: "<startYear>/<last two digits of endYear> season (for calendar-year leagues such as MLS, that's the <endYear> season)". For example, the row `startYear 2026, endYear 2027` gives "2026/27 season (for calendar-year leagues such as MLS, that's the 2027 season)". A season the user named ("2025/26", "25/26", "2026") is used as named, under the one-season rule — never re-interpreted, and no fallback to another season. When "this season" resolved to the split season in progress and the player has no row for it, do not stop at "no data": say that season has no data for the player yet, say a calendar-year league's current season is the previous season here — the split row whose `endYear` is the resolved row's `startYear` — and offer it. For a single-player minutes question, also read that previous season (`listSeasonProviderMetrics` with its `seasonId`) and show it, labelled from its own row: "<startYear>/<last two digits of endYear> season (the <endYear> season in a calendar-year league)".
+
+`getPlayer`'s `seasonProviderMetrics` rows are keyed by `seasonId`: map each id to its season with `listSeasons`, never guess it. Ordering players by career minutes ("most experienced") stays a SQL sort on `"MINUTES_TOTAL"` (Sorting Reference).
 
 ## Step 9: Common Pitfalls
 
