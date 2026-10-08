@@ -16,6 +16,15 @@ Do **not** use this skill for:
 - "Rank players by metric Y" with no anchor → that is `rank_players`.
 - "Compare X and Y" with two named players → that is `compare_players`. A similarity score between two named players stays here — see "Similarity score between two named players" below.
 
+## Step 0: A price cap in another currency — ask first
+
+Market valuations are recorded in euros, and nothing here converts a currency. Check this before **Step 1**: a cap in another currency is asked about before any tool call, even `searchPlayers` for the anchor.
+
+- A cap in euros ("under €25m", "25m EUR") is used as given.
+- A bare figure ("under 25m") is read as euros; say so: "I read 25m as €25m."
+- A price cap in pounds, dollars or any other non-euro currency ("under £25m", "under $30m"): make no tool call and name no exchange rate. Reply with one short question that keeps the user's figure and currency: "Valuations are recorded in euros. What euro amount should I use for your £25m?" Give no list of players. Search only once the user gives a euro figure. Never convert a currency yourself, and never read pounds or dollars as euros.
+- If the request also names a region ("in Europe"), put the region sentence from **A region the `filter` cannot express** before the question: "I can't filter similar players by region, so the list won't be restricted to Europe. Valuations are recorded in euros. What euro amount should I use for your £25m?"
+
 ## Step 1: Resolve the anchor player to an ID — and verify it's the right one
 
 Call `searchPlayers` with the anchor's name (e.g., "Pedri", "Kevin De Bruyne"). **Then check the top result before using it.**
@@ -65,7 +74,7 @@ Do not silently drop the league filter or substitute a different league.
 
 Call `listSimilarPlayers` with the resolved anchor `playerId` and put **all candidate-pool constraints in the `filter` argument** (a `SimilarPlayerFilterInput`). The tool applies them **server-side**, so you do **not** enrich candidates one by one. Supported `filter` fields:
 
-- `minValuation` / `maxValuation` — price caps in full units (e.g. "under £25m / €25m" → `maxValuation: 25000000`).
+- `minValuation` / `maxValuation` — market valuation caps in **whole euros** ("under €25m" → `maxValuation: 25000000`); a cap in another currency gets the **Step 0** question first.
 - `minAge` / `maxAge` — age caps ("under 23" → `maxAge: 23`).
 - `leagueIds` — restrict to named leagues (resolve via `listMyOrganizationsLeagues`; follow the empty-resolver halt rule above).
 - `minMinutesPlayed` / `maxMinutesPlayed`, `minMonthsRemaining` / `maxMonthsRemaining`.
@@ -73,13 +82,22 @@ Call `listSimilarPlayers` with the resolved anchor `playerId` and put **all cand
 
 If the user asked for a specific number of results ("top 5 alternatives"), pass it as `first`. Otherwise let the tool return its default (20).
 
-If the user names a constraint the `filter` genuinely cannot express — a **region** like "in Europe" (no single league list) or a position group — apply what the filter supports and state the unmet part in your prose. Do **not** fabricate an argument name and do **not** enrich every candidate to emulate it.
+If the user names a constraint the `filter` genuinely cannot express — a **region** like "in Europe" (see **A region the `filter` cannot express** below) or a position group — apply what the filter supports and state the unmet part in your prose. Do **not** fabricate an argument name and do **not** enrich every candidate to emulate it.
+
+### A region the `filter` cannot express
+
+`SimilarPlayerFilterInput` has no region or country field, and the returned players carry no country. When the user asks for a region ("in Europe", "South American players", "from Africa"):
+
+- Run the search with whatever else the `filter` supports. There is no region argument, and no league list stands in for one.
+- Say it once, in plain words, before the list, naming the user's region: "I can't filter similar players by region, so the list won't be restricted to Europe." Do not repeat it on each row.
+- Never infer or label a player's region or country from their club's name, and never split the list into groups such as "in Europe" and "outside Europe". A club's name does not say where it is. Show each club exactly as the tool returns it.
+- Never drop, reorder or flag a player because you think their club is outside the region.
 
 ### Value/age qualifiers: use the `filter`, don't enrich the candidate list
 
 The `listSimilarPlayers` nodes are scalars-only (similarity score, no valuation/age), but that does **not** mean you must give up or enrich the whole list. Use the server-side `filter`:
 
-1. **Absolute caps** ("under £25m", "under 23"): pass `filter.maxValuation` / `filter.maxAge` directly — one call, no enrichment.
+1. **Absolute caps** ("under €25m", "under 23"): pass `filter.maxValuation` / `filter.maxAge` directly — one call, no enrichment.
 2. **Relative caps** ("cheaper than Saka", "younger than De Bruyne"): call `getPlayerBioDataByPlayerId` on the **anchor only** (a single call) to read its valuation/age, then pass that number as `filter.maxValuation` / `filter.maxAge`.
 3. Present the qualifier explicitly ("valued below Saka's €74M tag").
 
@@ -94,7 +112,7 @@ If `listSimilarPlayers` returns an empty array, tell the user no similar players
 - Lead with the anchor: "Players similar to **Pedri** (Barcelona, 21yo, midfielder):" then list candidates.
 - Include the candidate's club, age, and (when relevant to the user's filter) valuation in the row.
 - Pass through whatever similarity score the tool returns — do not invent one and do not normalize it to a different scale.
-- If the user named a constraint (cheaper, younger, in-league), confirm it in one sentence: "All five are valued below Pedri's €100M tag" / "All from Premier League sides".
+- If the user named a constraint (cheaper, younger, in-league), confirm it in one sentence: "All five are valued below Pedri's €100M tag" / "All from Premier League sides". A region is never confirmed this way; it gets the region sentence instead.
 
 ## Similarity score between two named players
 
