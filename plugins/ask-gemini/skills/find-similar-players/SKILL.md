@@ -23,7 +23,7 @@ Market valuations are recorded in euros, and nothing here converts a currency. C
 - A cap in euros ("under €25m", "25m EUR") is used as given.
 - A bare figure ("under 25m") is read as euros; say so: "I read 25m as €25m."
 - A price cap in pounds, dollars or any other non-euro currency ("under £25m", "under $30m"): make no tool call and name no exchange rate. Reply with one short question that keeps the user's figure and currency: "Valuations are recorded in euros. What euro amount should I use for your £25m?" Give no list of players. Search only once the user gives a euro figure. Never convert a currency yourself, and never read pounds or dollars as euros.
-- If the request also names a region ("in Europe"), put the region sentence from **A region the `filter` cannot express** before the question: "I can't filter similar players by region, so the list won't be restricted to Europe. Valuations are recorded in euros. What euro amount should I use for your £25m?"
+- If the request also names a region ("in Europe"), ask only the euro question, with no sentence about the region: the region goes in the `filter` once the search runs (see **A club region: `clubContinents` and `clubRegions`**).
 
 ## Step 1: Resolve the anchor player to an ID — and verify it's the right one
 
@@ -48,6 +48,8 @@ This is the most important step. "Similar to X" almost always implies a filter o
 | "Younger replacement for X" | Candidate age strictly less than the anchor's age. |
 | "Older / more experienced version of X" | Candidate age greater than the anchor's age. |
 | "[League] alternative to X" / "Premier League version of X" | Restrict candidates to the named league (resolve via `listMyOrganizationsLeagues`). |
+| "In Europe" / "from South American clubs" (a continent) | Restrict candidates to clubs on that continent: `filter.clubContinents` (see **A club region** under Step 4). |
+| "In the UK & Ireland" (an FM24 region) / "Scandinavian clubs" (an area one FM24 region covers) | Restrict candidates to clubs in that FM24 region: `filter.clubRegions`, with the exact region name (see **A club region** under Step 4). |
 | "Forwards similar to X" / "midfielders similar to X" | Restrict candidates to the named position group. |
 | "Who plays like X" (no modifier) | No candidate filter — the user wants the raw similarity list. |
 | "Replacement for X" (no modifier) | Treat as raw similarity unless other phrasing suggests a constraint. |
@@ -77,21 +79,62 @@ Call `listSimilarPlayers` with the resolved anchor `playerId` and put **all cand
 - `minValuation` / `maxValuation` — market valuation caps in **whole euros** ("under €25m" → `maxValuation: 25000000`); a cap in another currency gets the **Step 0** question first.
 - `minAge` / `maxAge` — age caps ("under 23" → `maxAge: 23`).
 - `leagueIds` — restrict to named leagues (resolve via `listMyOrganizationsLeagues`; follow the empty-resolver halt rule above).
+- `clubContinents` — restrict to clubs on a continent (`EUROPE`, `AFRICA`, `ASIA`, `NORTH_AMERICA`, `SOUTH_AMERICA`, `OCEANIA`); "in Europe" → `clubContinents: [EUROPE]`.
+- `clubRegions` — restrict to clubs in FM24 scouting regions, each name exactly as written in the table under **A club region** (several names are combined with OR).
 - `minMinutesPlayed` / `maxMinutesPlayed`, `minMonthsRemaining` / `maxMonthsRemaining`.
 - `sortBy` / `sortOrder` (default: `similarityScore` DESC — leave as-is unless the user asks otherwise).
 
 If the user asked for a specific number of results ("top 5 alternatives"), pass it as `first`. Otherwise let the tool return its default (20).
 
-If the user names a constraint the `filter` genuinely cannot express — a **region** like "in Europe" (see **A region the `filter` cannot express** below) or a position group — apply what the filter supports and state the unmet part in your prose. Do **not** fabricate an argument name and do **not** enrich every candidate to emulate it.
+If the user names a constraint the `filter` genuinely cannot express, such as a position group, apply what the filter supports and state the unmet part in your prose. A region is not one of these: it goes in `clubContinents` or `clubRegions` (see **A club region: `clubContinents` and `clubRegions`** below). Do **not** fabricate an argument name and do **not** enrich every candidate to emulate it.
 
-### A region the `filter` cannot express
+### A club region: `clubContinents` and `clubRegions`
 
-`SimilarPlayerFilterInput` has no region or country field, and the returned players carry no country. When the user asks for a region ("in Europe", "South American players", "from Africa"):
+A region means where the player's **club** plays: the backend maps each player's current league country to an FM24 scouting region and filters by it server-side. When the user asks for a region ("in Europe", "from South American clubs", "Scandinavian clubs"), put it in the `filter`:
 
-- Run the search with whatever else the `filter` supports. There is no region argument, and no league list stands in for one.
-- Say it once, in plain words, before the list, naming the user's region: "I can't filter similar players by region, so the list won't be restricted to Europe." Do not repeat it on each row.
-- Never infer or label a player's region or country from their club's name, and never split the list into groups such as "in Europe" and "outside Europe". A club's name does not say where it is. Show each club exactly as the tool returns it.
-- Never drop, reorder or flag a player because you think their club is outside the region.
+- A continent goes in `clubContinents`, one value per continent: Europe → `EUROPE`, Africa → `AFRICA`, Asia → `ASIA`, North America → `NORTH_AMERICA`, South America → `SOUTH_AMERICA`, Oceania → `OCEANIA`. "In Europe" → `clubContinents: [EUROPE]`, which covers FM24's eight European regions (Turkey is in; Israel and Kazakhstan count as Asia). `NORTH_AMERICA` includes Central America and the Caribbean, and `SOUTH_AMERICA` is both South America regions.
+- An FM24 region goes in `clubRegions`, with each name exactly as written in the table below; several names are combined with OR. "In the UK & Ireland" → `clubRegions: ["UK & Ireland"]`. An area the table does not name but one region covers ("Scandinavian clubs") uses that region (`clubRegions: ["Northern Europe"]`), and the answer says which FM24 region was used and the countries it covers.
+- To add a region to a continent ("in Europe or the Middle East"), put every name in `clubRegions`: the continent's FM24 regions plus the other one. Europe's are Central Europe, Eastern Europe, North Eastern Europe, Northern Europe, South Eastern Europe, South Europe, UK & Ireland and Western Europe; Africa's are Central Africa, East Africa, North Africa, Southern Africa and Western Africa; Asia's are Central Asia, East Asia, Middle East, South Asia and Southeast Asia; North America's are Caribbean, Central America and North America; South America's are South America (North) and South America (South); Oceania's is Oceania. Set both fields only to narrow, when the region lies inside the continent ("Scandinavian clubs in Europe"): a player must then match both.
+- A single country ("clubs in Spain") is not a region value, and the `filter` has no country field. Before searching, offer the FM24 region that contains it ("Western Europe") or, when the user means a league, the league itself (`leagueIds`, Step 3), and wait for the answer.
+- A nationality ("Brazilian players", "players born in Norway") is not a club region. Say the search filters by where a player's club plays, not by nationality, and ask whether to search clubs in that area instead. When a phrase can be read either way ("South American players"), filter by the club region and say that is how you read it: "I've read this as players at South American clubs; the search can't filter by nationality."
+- `BAD_USER_INPUT` from `listSimilarPlayers` comes in two kinds. "Unknown scouting region(s): …" lists the valid FM24 names: retry once with the matching valid name, and if none matches, say the region isn't one of the FM24 scouting regions and list them. "… have no region in common …" means `clubRegions` and `clubContinents` exclude each other: retry once with only one of them, the one that says what the user asked. Never run the search without the region instead.
+- Any other error on a region field (for example a backend that rejects `clubContinents` or `clubRegions` as an unknown argument) means region filtering isn't available there: say so once, offer to search without the region, and wait for the answer.
+- Never stand a league list (`leagueIds`) in for a region, and never infer or label a player's region or country from their club's name. Whatever the backend returns, never drop, reorder or flag a player because you think their club is outside the region, and show each club exactly as the tool returns it.
+- The region counts as applied only when the response's `unknownClubRegionExcludedCount` is a number (0 included). When the region was applied, never say you couldn't restrict the results to it. When the field is null or missing, the backend did not apply the region: say once, before the list, that the region filter wasn't applied this time ("The region filter wasn't applied this time, so this list isn't limited to clubs in Europe."), show the list exactly as returned, never filter it yourself or by club names, and give no region confirmation in Step 6.
+- `unknownClubRegionExcludedCount` counts players left out only because their club's region isn't recorded (free agents, or no league country). When it is more than 0, add one soft sentence after the list and give no number: "Some players whose club's region isn't recorded, such as free agents, aren't included." Never quote the count; it is taken over the whole player pool, not this list.
+
+<!-- club-regions:start -->
+<!-- Generated from lib/skills/scoutingRegions.ts by `bun run skills:render-regions`. Do not edit by hand. -->
+
+> Source: GD-217 / Notion "Regions for Each Country", Football Manager 2024 (FM24) scouting regions. Pass region names to `filter.clubRegions` exactly as written in this table. A continent is not a row here: it goes in `filter.clubContinents`.
+
+| Region | Countries (the club's current league country) |
+|--------|-----------------------------------------------|
+| Central Africa | Cameroon; Central African Republic; Chad; Congo; DR Congo; Equatorial Guinea; Gabon; São Tomé & Príncipe |
+| East Africa | Burundi; Djibouti; Eritrea; Ethiopia; Kenya; Mayotte; Réunion; Rwanda; Somalia; South Sudan; Tanzania; Uganda; Zanzibar |
+| North Africa | Algeria; Egypt; Libya; Morocco; Sudan; Tunisia |
+| Southern Africa | Angola; Botswana; Comoros; Eswatini; Lesotho; Madagascar; Malawi; Mauritius; Mozambique; Namibia; Seychelles; South Africa; Zambia; Zimbabwe |
+| Western Africa | Benin; Burkina Faso; Cape Verde; Côte d'Ivoire; Gambia; Ghana; Guinea; Guinea-Bissau; Liberia; Mali; Mauritania; Niger; Nigeria; Senegal; Sierra Leone; Togo |
+| Central Asia | Kazakhstan; Kyrgyzstan; Tajikistan; Turkmenistan; Uzbekistan |
+| East Asia | China; Chinese Taipei; Guam; Hong Kong; Japan; Macau; Mongolia; North Korea; Northern Marianas; South Korea |
+| Middle East | Bahrain; Iran; Iraq; Israel; Jordan; Kuwait; Lebanon; Oman; Palestine; Qatar; Saudi Arabia; Syria; United Arab Emirates; Yemen |
+| South Asia | Afghanistan; Bangladesh; Bhutan; India; Maldives; Nepal; Pakistan; Sri Lanka |
+| Southeast Asia | Brunei; Cambodia; Indonesia; Laos; Malaysia; Myanmar; Philippines; Singapore; Thailand; Timor-Leste; Vietnam |
+| Central Europe | Austria; Belgium; Czech Republic; Germany; Liechtenstein; Luxembourg; Netherlands; Poland; Slovakia; Switzerland |
+| Eastern Europe | Bulgaria; Hungary; Moldova; Romania; Serbia |
+| North Eastern Europe | Belarus; Estonia; Latvia; Lithuania; Russia; Ukraine |
+| Northern Europe | Denmark; Faroe Islands; Finland; Iceland; Norway; Sweden |
+| South Eastern Europe | Armenia; Azerbaijan; Cyprus; Georgia; Greece; North Macedonia; Turkey |
+| South Europe | Albania; Bosnia and Herzegovina; Croatia; Italy; Kosovo; Malta; Montenegro; San Marino; Slovenia |
+| UK & Ireland | England; Ireland; Northern Ireland; Scotland; Wales |
+| Western Europe | Andorra; France; Gibraltar; Portugal; Spain |
+| Caribbean | Anguilla; Antigua and Barbuda; Aruba; Bahamas; Bermuda; Bonaire; British Virgin Islands; Cayman Islands; Cuba; Curaçao; Dominica; Dominican Republic; Grenada; Guadeloupe; Haiti; Jamaica; Martinique; Montserrat; Puerto Rico; Saint Barthélemy; Saint Kitts and Nevis; Saint Lucia; Saint-Martin; Sint Maarten; St. Vincent & the Grenadines; Trinidad & Tobago; Turks & Caicos Islands; US Virgin Islands |
+| Central America | Belize; Costa Rica; El Salvador; Guatemala; Honduras; Nicaragua; Panama |
+| North America | Canada; Mexico; St. Pierre & Miquelon; United States |
+| Oceania | American Samoa; Australia; Cook Islands; Fiji; Kiribati; Micronesia; New Caledonia; New Zealand; Papua New Guinea; Samoa; Solomon Islands; Tahiti; Tonga; Tuvalu; Vanuatu; Wallis & Futuna Islands |
+| South America (North) | Bolivia; Colombia; Ecuador; French Guiana; Guyana; Peru; Suriname; Venezuela |
+| South America (South) | Argentina; Brazil; Chile; Paraguay; Uruguay |
+<!-- club-regions:end -->
 
 ### Value/age qualifiers: use the `filter`, don't enrich the candidate list
 
@@ -105,14 +148,14 @@ The `listSimilarPlayers` nodes are scalars-only (similarity score, no valuation/
 
 ## Step 5: Handle empty / null results
 
-If `listSimilarPlayers` returns an empty array, tell the user no similar players were found under the requested constraints — do not substitute an unfiltered list or fall back to SQL. Suggest broadening one constraint (e.g., "if I lift the cheaper-than-anchor restriction, I can show similar players at any price"), then wait for confirmation before re-running.
+If `listSimilarPlayers` returns an empty array with a `filter` set, tell the user no similar players matched, naming every filter you applied, the region included ("No similar players at clubs in Europe valued under €29m came back."). Name the region as an applied filter only when it was applied, that is when `unknownClubRegionExcludedCount` is a number (see **A club region**); otherwise name the filters that were applied and say the region filter wasn't. Never say there is no similarity data when a filter was set; only an empty array with no `filter` means the anchor has none. Do not substitute an unfiltered list or fall back to SQL. Suggest broadening one constraint (e.g., "if I lift the cheaper-than-anchor restriction, I can show similar players at any price", or "if I widen Northern Europe to all of Europe, …"), then wait for confirmation before re-running.
 
 ## Step 6: Present the result
 
 - Lead with the anchor: "Players similar to **Pedri** (Barcelona, 21yo, midfielder):" then list candidates.
 - Include the candidate's club, age, and (when relevant to the user's filter) valuation in the row.
 - Pass through whatever similarity score the tool returns — do not invent one and do not normalize it to a different scale.
-- If the user named a constraint (cheaper, younger, in-league), confirm it in one sentence: "All five are valued below Pedri's €100M tag" / "All from Premier League sides". A region is never confirmed this way; it gets the region sentence instead.
+- If the user named a constraint (cheaper, younger, in-league, a region), confirm it in one sentence: "All five are valued below Pedri's €100M tag" / "All from Premier League sides" / "All ten play for clubs in Europe." Confirm a region only when it was applied (see **A club region**).
 
 ## Similarity score between two named players
 
