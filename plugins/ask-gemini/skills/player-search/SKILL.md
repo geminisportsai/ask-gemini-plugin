@@ -122,9 +122,9 @@ Never read scout reports through a SQL join over `scout_report` — it ignores p
 
 A criterion on a past transfer — "completed a transfer for more than 20M", "moved for more than 10M in the past two years", "exclude players who moved for more than X" — cannot be applied: no filter here reads transfer fees or transfer history, and a market valuation (`minValuation` / `maxValuation`) is not a transfer fee, so never use it in its place.
 
-- Start the answer with: "I can't search transfers by fee yet, so I couldn't apply "[the transfer criterion as the user wrote it]"."
+- Start the answer with: "I can't filter a player search by transfer fee yet, so I couldn't apply "[the transfer criterion as the user wrote it]"."
 - Apply the other criteria as usual and list those players under that sentence; never show a transfer fee for any of them, and never say or imply that any of them moved for that fee.
-- End with: "I can show one club's transfers, with each fee as listed, for a window you choose — which club and window would you like?"
+- End with: "I can list a league's or a club's transfers over that fee instead — which league or club would you like?"
 
 ## Step 3: Execute Search
 

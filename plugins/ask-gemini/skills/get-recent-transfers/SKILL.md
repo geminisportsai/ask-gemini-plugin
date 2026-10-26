@@ -1,30 +1,85 @@
 ---
 name: get-recent-transfers
 description: >
-  Look up transfer history or recent transfer activity — a single player's
-  transfers or a named club's recent in/out moves. It cannot search transfers
-  by fee or across a whole league yet. Use when the user asks about transfers,
-  signings, or career club history.
+  Look up transfer history or transfer activity — a single player's transfers,
+  a named club's in/out moves, or transfers across a whole league, filtered by
+  fee and date with a count. Use when the user asks about transfers, signings,
+  sales, transfer fees, or career club history.
 ---
 
 # Get Recent Transfers
 
-Use this skill when the user asks about **transfers** — a single player's transfer history, or one club's recent signings or sales. This intent is distinct from `lookup_contracts` (which covers active contract clauses) and from `summarize_player` (which covers overall profile).
+Use this skill when the user asks about **transfers** — a single player's transfer history, one club's signings or sales, or transfers across a whole league, by fee. This intent is distinct from `lookup_contracts` (which covers active contract clauses) and from `summarize_player` (which covers overall profile).
 
-## Step 0: Questions this skill cannot answer yet — a fee threshold or a whole league
+## Step 0: League-wide and fee-threshold questions — `listTransfersByLeague`
 
-Transfers can be looked up for one player or one club. There is no search by transfer fee and no search across a whole league yet. Check the question for these before calling any tool:
+Check the question for these before **Step 1**:
 
-- **A fee threshold** — transfers or players filtered by a fee: "bought or sold for more than 10M", "moved for more than 10M in the past five years", "completed a transfer for more than 20M", "exclude players who moved for more than X", "signings over €30M".
 - **A whole league** — transfers across a league, country or competition rather than one club: "transfers in the Hungarian league", "how many players were bought or sold in NB I", "Premier League transfers this summer".
+- **A fee threshold** — transfers filtered by a fee: "bought or sold for more than 10M", "moved for more than 10M in the past five years", "signings over €30M", "exclude moves over X".
 
-When the question has either and is not about one or a few named players, one named club, or the user's own club ("we", "our"), reply with exactly this, and call no tool:
+`listTransfersByLeague` answers these in one call: one league, filtered by fee, date and direction, with `totalCount` across all pages.
 
-> I can't search transfers by fee or across a whole league yet. I can show one club's transfers, with each fee as listed, for a window you choose — for example, a club's signings last summer. Which club and window would you like?
+- A fee in pounds, dollars or any other non-euro currency gets the euro question from **0.ii** before anything else: no tool call, not even to resolve the league or the player.
+- A fee question about one or a few named players goes to **Step 1** ("Has Rice ever moved for more than €100M?" — compare each row's `feeAmountEur` with the bound from **0.ii**); one about one named club or the user's own club ("we", "our") goes to **Step 1b** (see **1b.vi**).
+- A fee question that names no league, club or player ("Players who moved for more than 10M in the past five years") gets this one question back, and no tool call: "Which league or club should I search? I can list transfers over a fee for one league or one club."
 
-- Never call `listTransfersByTeamId` for several clubs to build a league answer, and never answer from a handful of clubs as if they were the league.
-- Never give a count, a total, a fee or a list of transfers for a league or for a fee threshold, and never estimate one.
-- When a fee threshold comes with one or a few named players ("Has Rice ever moved for more than £100M?", "Show Pedri's transfers over €20M"), one named club ("Arsenal's signings over €20M this summer") or the user's own club ("Our signings over €20M"), do not give the reply above. Open with "I can't filter transfers by fee yet, so here are all of [X]'s transfers, with each fee as listed:" — [X] is the player, the club or the user's club, with the window after "transfers" when the question gives one — and answer as usual (**Step 1** for a player, **Step 1b** for a club) — every row, none dropped, counted or totalled by fee.
+### 0.i — Resolve the league by name and country
+
+Call `listMyOrganizationsLeagues` with `first: 100`; while `pageInfo.hasNextPage` is true, call again with `after: pageInfo.endCursor`. A league that is not on the first page is not out of scope. Match the league by name **and** `country`: league names repeat — there is a "Premier League" in England and one in Scotland.
+
+- A country word names the country: "the Hungarian league" → the league whose `country` is Hungary; "the English Premier League" → England. A bare "Premier League" is England's only when England's Premier League is among your organization's leagues; name the country in the answer. Otherwise apply the next two rules.
+- When the name or country matches more than one league and the question doesn't say which, ask which one and call nothing else: "Your organization follows more than one [name] — do you mean [League] ([Country]) or [League] ([Country])?"
+- When no league matches, say: "That league isn't in the leagues your organization has added. Please add it in your organization settings and try again." Do not substitute another league.
+
+### 0.ii — Turn the fee into whole euros
+
+`feeMin` and `feeMax` are **whole euros**: €10m = `10000000`, €500k = `500000`. Never pass millions ("10") or another currency.
+
+The bounds include the figure itself and fees are whole euros, so map the wording exactly:
+
+- "more than / over / above X" → `feeMin: X + 1` ("more than €10m" → `feeMin: 10000001`)
+- "at least / X or more" → `feeMin: X`
+- "less than / under / below X" → `feeMax: X − 1` ("under €5m" → `feeMax: 4999999`)
+- "between X and Y" → `feeMin: X`, `feeMax: Y`
+- "exclude moves over X" → `feeMax: X`
+
+Currency:
+
+- A figure with no currency ("10M") is read as euros, the currency of the transfer data. Say so in the answer: "I read 10M as €10m."
+- A figure in euros ("€30m", "30m EUR", "30 million euros") is used as given.
+- A figure in pounds, dollars or any other non-euro currency: make no tool call and name no exchange rate. Reply with one short question that keeps the user's figure and currency: "Transfer fees are recorded in euros. What euro amount should I use for your £50m?" Give no count and no list. Search only once the user gives a euro figure, then apply the bound above to it. Never convert a currency yourself, and never treat pounds or dollars as euros.
+- A fee bound keeps only transfers with a known amount, so undisclosed fees never count. When a bound was applied, say: "Transfers with no reported fee are not included."
+
+### 0.iii — Window, direction and the call
+
+- "in the past N years" → `dateFrom` = the date N years before today (ISO, `YYYY-MM-DD`), no `dateTo`. "since 2022" → `dateFrom: "2022-01-01"`; "in 2024" → `dateFrom: "2024-01-01"`, `dateTo: "2024-12-31"` (a bare `dateTo` covers the whole day).
+- A named season or window ("this summer", "2024/25", "the January window") → `season` from `listSeasons` (as in **1b.iii**), with `window: "SUMMER"` or `"WINTER"` when one is named; never pass both dates and `season`.
+- No time cue → no date bound; say the answer covers every year on record.
+- Direction: "bought or sold", "transfers", "moves" → `ALL` (each move once); "signings", "bought", "incoming" → `IN` (the buying club is in the league); "sold", "sales", "outgoing" → `OUT` (the selling club is in the league).
+- `orderBy: "FEE_DESC"` for a fee threshold or "biggest / most expensive / record"; otherwise `"DATE_DESC"`. Pass `first: 50`.
+
+Example — "How many players from the Hungarian league have been bought or sold for more than 10M in the past five years?" → `listTransfersByLeague` with `leagueId` = Hungary's league, `direction: "ALL"`, `feeMin: 10000001`, `dateFrom` = five years before today, `orderBy: "FEE_DESC"`, `first: 50`.
+
+### 0.iv — Write the answer
+
+- **"How many" is `totalCount`.** Open with it: "[totalCount] transfers involving [League] ([Country]) clubs had a fee over €10m since [dateFrom]." Never count the rows on the page, never add up pages yourself, and never estimate.
+- A figure in another currency never reaches this step: it gets the euro question in **0.ii** first.
+- `totalCount` counts transfers, not players. When the user asked "how many players", follow the count sentence with exactly: "That's [N] transfers, not players: a player who moved twice counts twice."
+- With no fee bound, every move type can come back: show a `FREE` row as "free transfer", `UNDISCLOSED` as "fee undisclosed", `END_OF_LOAN` as "end of loan (return)" and `LOAN` as "loan" (with the loan fee when `feeAmountEur` is set). When the rows include `LOAN` or `END_OF_LOAN` moves, say in the count sentence that the count includes loans: "[totalCount] transfers, including loans, …".
+- List each transfer on its own line with player, from club, to club, fee and date: "- [Player] — [From] → [To], €30.9m ([date])". Take the fee from `fee` or `feeAmountEur` (30900000 → €30.9m); a `feeType` of `LOAN` is a loan fee — say so; never invent an amount.
+- When `totalCount` is larger than the rows you list, say "Showing the first [N] of [totalCount], biggest fee first." (or "newest first") and offer the rest. Fetch more pages (`after` = `pageInfo.endCursor`) only when the user asks for every transfer — then pass `first: 100` — and never to build the count.
+- **Current-league rule.** A transfer belongs to the league when its selling or buying club is in the league **today**. When the window reaches back before the current season, end with: "League membership uses each club's current league, so clubs promoted or relegated since a move are counted by today's league."
+- Empty `edges` (`totalCount` 0): say "No [League] transfers matched [the fee and window]." and stop. Do not broaden the filter.
+
+### 0.v — When the league search fails
+
+Say plainly what happened, in the wording for the case:
+
+- If `listTransfersByLeague` is not among your tools, say: "League transfer search isn't available here yet."
+- If it returns an error, say: "I couldn't search [League]'s transfers just now, so I can't give that count." Offer to try again, or to show one club's transfers instead.
+
+- Never fall back to `listTransfersByTeamId` once per club, never estimate a count, a total or a fee, and never present a few clubs as the league.
 
 ## Step 1: Pick the right tool path from the user's phrasing
 
@@ -38,6 +93,7 @@ Phrasing determines whether the query is keyed by a player or by a club.
 | "What did [club] sign this window?" / "[club]'s signings" / "[club]'s incoming" / "[club]'s outgoing" (named club, any direction) | See **Step 1b** below | `listTransfersByTeamId` |
 | "[club]'s loan deals" / "who is on loan at [club]" / "who did we loan out" (named club or the user's own) | See **1b.v** below | `listLoansByTeamId` |
 | "Our recent signings" / "Who did we sign?" / "My team's outgoings" (user's own org) | See **Step 1b** below | `listTransfersByTeamId` |
+| "Transfers in [league] over €Xm" / "How many players were bought or sold in [league]" (whole league, or a fee threshold) | See **Step 0** above | `listTransfersByLeague` |
 
 For per-player paths (rows 1-3), if `searchPlayers` returns the wrong player (different position, club, or nationality than the user implied), **re-call `searchPlayers` with a more specific query** before continuing. Do not pick the first hit when it contradicts the prompt.
 
@@ -157,9 +213,21 @@ Example shape (placeholders, not real players):
 >
 > Loans to clubs in leagues your organization doesn't follow may not appear.
 
+### 1b.vi — Fee thresholds for one club
+
+A fee in pounds, dollars or any other non-euro currency gets the euro question from **0.ii** first, with no tool call; search once the user gives a euro figure.
+
+When a one-club question carries a fee — "Arsenal's signings over €20M this summer", "Our sales over €30M", "Liverpool's biggest buys" — call `listTransfersByTeamId` with `feeMin` / `feeMax` in whole euros, bounded as in **0.ii** ("over €20M" → `feeMin: 20000001`), `orderBy: "FEE_DESC"` and `first: 100`, plus `direction`, `window` and `season` from **1b.ii**.
+
+- **Check the fee filter is active.** An older backend ignores `feeMin` / `feeMax` without an error. The filter is not active when the rows lack the `feeAmountEur` field, or any row's `feeAmountEur` is null or outside the bound. Then say "I couldn't filter [club]'s transfers by fee just now." and list no transfer as over (or under) the fee. Never filter the rows yourself to make up for it.
+
+- For "how many", or when the club's list may pass 100 rows, use `listTransfersByLeague` with `teamId` instead and take the count from `totalCount` (`direction` is then relative to that club).
+- List every row returned, each with its fee and date. State the currency reading from **0.ii**, and say "Transfers with no reported fee are not included."
+- An empty result gets the **1b.iv** halt, with the fee in the wording: "No transfers over €20m found for [club] in [window/season]."
+
 ## Step 2: Empty-resolver halt
 
-For any path that depends on `listMyOrganizationsTeams` or `listMyOrganizationsEligibleTeams`, follow the standard halt rule. A league-wide question never reaches a resolver: it gets the **Step 0** reply.
+For any path that depends on `listMyOrganizationsTeams` or `listMyOrganizationsEligibleTeams`, follow the standard halt rule. A league-wide question resolves its league in **0.i**, which has its own halt.
 
 If `listMyOrganizationsTeams` returns empty for an "our / my team" prompt, respond with this exact message and stop:
 
@@ -191,14 +259,16 @@ For club-scoped queries, pass the resolved window/season as args to `listTransfe
 
 - Single player → `transfersByPlayerId(playerId)`, post-filter by Step 3 window.
 - Multiple players → `transfersByPlayerIds([...playerIds])`, post-filter by Step 3 window.
-- Named club / "our team" → `listTransfersByTeamId(teamId, direction, window?, season?)` per Step 1b.
+- Named club / "our team" → `listTransfersByTeamId(teamId, direction, window?, season?, feeMin?, feeMax?, orderBy?)` per Step 1b.
 - A club's loans → `listLoansByTeamId(teamId, direction: ALL)` plus the loan-returns call, per **1b.v**.
+- Whole league, or a fee threshold across a league → `listTransfersByLeague(leagueId, direction, dateFrom? / season?, feeMin?, feeMax?, orderBy, first)` per Step 0.
 
 Don't mix paths — a club-scoped prompt goes through `listTransfersByTeamId` only, not a fan-out via `transfersByPlayerIds`.
 
 ## Step 5: Empty / null handling
 
 - `listTransfersByTeamId` returns `[]`: use the exact halt wording from Step 1b.iv.
+- `listTransfersByLeague` returns no edges: use the wording from **0.iv**; an error: **0.v**.
 - `transfersByPlayerId` / `transfersByPlayerIds` returns no rows: state plainly that no transfers matched the filters. Do not synthesize transfers from contract data or invent a "no transfer activity" club summary.
 - A named player has no career transfers (rare — e.g., one-club player): say so explicitly. That is a valid answer, not a failure.
 
@@ -232,4 +302,6 @@ Pass through the loan / permanent / free-transfer distinction when the data has 
 5. **Don't infer a window the user didn't ask for.** Default to last 12 months only when the user gave no temporal cue; do not silently truncate "all transfers" to last 12 months.
 6. **Don't invent fees.** Undisclosed fees stay undisclosed.
 7. **Don't pick the wrong player.** If `searchPlayers` returns a player whose attributes contradict the prompt, re-search with a more specific query before continuing.
-8. **Don't fan out club by club across a league.** Calling `listTransfersByTeamId` once per club is not a league search, and a few clubs are not the league. A league-wide or fee-threshold question gets the **Step 0** reply.
+8. **Don't fan out club by club across a league.** Calling `listTransfersByTeamId` once per club is not a league search; `listTransfersByLeague` answers in one call. A few clubs are never the league.
+9. **Don't pass a fee in millions or pounds.** `feeMin` / `feeMax` are whole euros and include the figure itself ("more than €10m" → `10000001`). For a figure in another currency, ask for the euro amount (**0.ii**); never convert it yourself.
+10. **Don't count rows for "how many".** The count is `totalCount`, across all pages.
