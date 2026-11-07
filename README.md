@@ -24,8 +24,7 @@ the connection to the remote Gemini Sports MCP server.
 
 Gemini Sports organizations are private and invitation-only. You need an active
 Gemini Sports account at a club. If your club is not on Gemini Sports yet,
-email [cody@geminisports.ai](mailto:cody@geminisports.ai) to book a demo with
-our team.
+[book a demo with our team](https://geminisports.ai/talk-to-team).
 
 Claude only reaches your own club's data. Contracts, clauses, squad wages and
 squad planning depend on your role, and the compliance overview (BETA) depends
@@ -70,10 +69,7 @@ then **quit and reopen the app** for the plugin to load.
 ### In Claude.ai
 
 Add a custom connector in your Claude connector settings and enter this URL:
-`https://gql.staging.geminisports.io/mcp`
-
-This is the same server the plugin uses today. It moves to production in a
-later release; this page will give the new URL then.
+`https://gql.geminisports.io/mcp`
 
 ### In Cowork (desktop app)
 
@@ -108,6 +104,7 @@ Some tools also make changes in your Gemini Sports workspace:
 
 - Create a watchlist, and add players to or remove them from a watchlist.
 - Create a private pipeline board, and add players to or remove them from a board.
+- Delete a conversation thread.
 
 Claude asks before it uses a tool that makes a change, in line with your Claude
 permission settings.
@@ -120,13 +117,15 @@ those listed here.
 
 ### Where data goes
 
-1. **The Gemini Sports MCP server**, `https://gql.staging.geminisports.io/mcp`.
-   This is the only destination for tool calls.
-2. **Gemini Sports sign-in (OAuth)**, hosted on Amazon Web Services, at
-   `https://eojlfn3czf.execute-api.us-east-1.amazonaws.com` (the sign-in service
-   the server above advertises), used only when you sign in or your session is
-   refreshed. The SMS code is sent by Gemini Sports' sign-in service through
-   Amazon Web Services (Amazon Simple Notification Service).
+1. **The Gemini Sports MCP server**: `https://gql.geminisports.io/mcp` for the
+   Claude.ai connector; the plugin's exact host is listed in the Data flows of
+   [plugins/ask-gemini/README.md](plugins/ask-gemini/README.md). This is the
+   only destination for tool calls.
+2. **Gemini Sports sign-in (OAuth)**: Gemini Sports' sign-in service, hosted on
+   Amazon Web Services, which the MCP server advertises. It is used only when
+   you sign in or your session is refreshed. The SMS code is sent by Gemini
+   Sports' sign-in service through Amazon Web Services (Amazon Simple
+   Notification Service).
 
 ### What is sent
 
@@ -157,10 +156,10 @@ to run, secure and troubleshoot the service. See the
 
 ## MCP endpoint
 
-The plugin's MCP connector **currently defaults to staging**
-(`https://gql.staging.geminisports.io/mcp`). The default moves to production in
-a later release. Override it for another environment by setting
-`ASK_GEMINI_MCP_URL` before launching Claude Code, e.g.:
+The plugin connects to the Gemini Sports MCP server. Its exact host is listed
+in the Data flows of [plugins/ask-gemini/README.md](plugins/ask-gemini/README.md).
+Override it for another environment by setting `ASK_GEMINI_MCP_URL` before
+launching Claude Code, e.g.:
 
 ```
 ASK_GEMINI_MCP_URL=https://gql.dev.geminisports.io/mcp   # dev
@@ -187,4 +186,4 @@ notice as `plugins/ask-gemini/LICENSE` from the next plugin release.
 ---
 
 The plugin under `plugins/ask-gemini/` is generated and published from the
-private `ask-gemini` repo on each staging deploy — do not edit it by hand.
+private `ask-gemini` repo on each release — do not edit it by hand.
