@@ -12,7 +12,7 @@
       "source": "./plugins/ask-gemini",
       "description": "Football scouting assistant from Gemini Sports for staff at Gemini Sports clubs: find and compare players, read scout reports, review transfers, loans and contracts, plan the squad, and manage watchlists and pipeline boards. Connects to the Gemini Sports MCP server (defaults to staging; override with ASK_GEMINI_MCP_URL).",
       "author": { "name": "Gemini Sports", "url": "https://geminisports.ai" },
-      "homepage": "https://github.com/geminisportsai/ask-gemini-plugin",
+      "homepage": "https://github.com/geminisportsai/ask-gemini-plugin#readme",
       "repository": "https://github.com/geminisportsai/ask-gemini-plugin",
       "license": "UNLICENSED",
       "category": "productivity"
