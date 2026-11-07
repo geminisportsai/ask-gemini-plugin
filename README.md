@@ -76,11 +76,12 @@ a later release. Override it for another environment by setting
 ASK_GEMINI_MCP_URL=https://gql.dev.geminisports.io/mcp   # dev
 ```
 
-If you set it, all tool calls and sign-in go to that URL instead.
+If you set it, tool calls go to that URL instead, and sign-in uses whatever
+sign-in service that server advertises.
 
 ## License
 
-Copyright (c) 2026 Gemini Sports. All rights reserved. The plugin carries this
+Copyright (c) 2026 Gemini Sports Inc. All rights reserved. The plugin carries this
 notice as `plugins/ask-gemini/LICENSE` from the next plugin release.
 
 ---
