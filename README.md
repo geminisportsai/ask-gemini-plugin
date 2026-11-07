@@ -1,7 +1,7 @@
 # ask-gemini-plugin
 
-Public Claude Code plugin marketplace for **Ask Gemini** — Gemini Sports AI's
-football scouting & analytics assistant.
+Public Claude Code plugin marketplace for **Ask Gemini**, the football scouting
+assistant from Gemini Sports.
 
 The plugin bundles the model-invoked skills for every Ask Gemini intent and the
 remote MCP server connection.
