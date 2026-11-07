@@ -11,6 +11,12 @@ Use this skill when the user wants to remove a player from one of their watchlis
 
 If the user names the watchlist ("remove Isak from my 49 watchlist"), follow **When the user names the watchlist**. If they name no watchlist ("take Alexander Isak off my watchlist"), follow **When the user names no watchlist**.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## When the user names no watchlist
 
 No watchlist named: find the player, then call `getPlayer` and read its `watchlists` field — it lists every one of the user's watchlists that holds the player, in one call. Do not page through `listMyUserWatchlists` or `listWatchlistPlayers` to look for the player; that runs out of steps before it reaches every list.

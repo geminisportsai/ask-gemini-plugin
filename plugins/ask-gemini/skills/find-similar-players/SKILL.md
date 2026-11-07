@@ -16,6 +16,12 @@ Do **not** use this skill for:
 - "Rank players by metric Y" with no anchor → that is `rank_players`.
 - "Compare X and Y" with two named players → that is `compare_players`. A similarity score between two named players stays here — see "Similarity score between two named players" below.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## Step 0: A price cap in another currency — ask first
 
 Market valuations are recorded in euros, and nothing here converts a currency. Check this before **Step 1**: a cap in another currency is asked about before any tool call, even `searchPlayers` for the anchor.

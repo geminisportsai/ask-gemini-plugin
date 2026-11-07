@@ -13,6 +13,12 @@ Use this skill when the user wants a **per-match** provider metric for a specifi
 
 If the user asks for season totals or per-90 averages, use `get_season_provider_metric` instead.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## KEY PASSES — season value only
 
 Key passes (also "chances created") exist only as a **season** figure — see Step 2 for how to fetch `playerSeasonKeyPasses90`. When the user asks for key passes, even "in his last 5 matches":

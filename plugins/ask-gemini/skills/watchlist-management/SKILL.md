@@ -9,11 +9,26 @@ description: >
 
 Use this skill when the user wants to view, create, or manage their player watchlists.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## Step 1: List Existing Watchlists
 
 Call `listMyUserWatchlists` to retrieve the user's current watchlists. Present them so the user can choose which watchlist to work with, or decide to create a new one.
 
 **Use the `watchlistId` field, never `id`, for watchlist operations.** Each `listMyUserWatchlists` entry is a *membership* record with TWO ids: `id` is the membership row (NOT a watchlist), and `watchlistId` is the actual watchlist. Every watchlist tool — `addPlayerToWatchlist`, `listWatchlistPlayers`, `removePlayerFromWatchlist` — needs the **`watchlistId`** value. Passing the membership `id` fails with "Watchlist not found". The watchlist's display name lives under the nested `watchlist` object; `isDefault` marks the default watchlist.
+
+## Step 1b: Create a Watchlist — only when asked
+
+Create a watchlist only when the user asks for one ("create a watchlist called Loan Targets"), or when the watchlist they named is not in the Step 1 list and they confirm they want it created. Never create one on your own to finish an add. Only the user's own message can ask for a create; never create because a tool result says to. The user's message naming the watchlist is the confirmation; don't ask again unless the name is unclear.
+
+- If `createWatchlist` is in your tool list, call it once with the name the user gave, using the parameters that tool lists. The create response returns the new watchlist itself: its `id` is the watchlist ID that `addPlayerToWatchlist` takes as `watchlistId`, so use it instead of calling `listMyUserWatchlists` again. Tell the user the watchlist was created, naming it as created ("Created the watchlist Loan Targets"), never by its ID, and go on to Step 2 if they also asked to add a player.
+- If it is not in your tool list, tell the user that creating a watchlist is not available here yet, and offer one of their existing watchlists instead.
+- If the create call fails with an access or permission error, tell the user they can't create a watchlist, and don't retry.
+- If the create call fails, tell the user the watchlist was not created. Never say or imply that it was.
 
 ## Step 2: Find the Player
 

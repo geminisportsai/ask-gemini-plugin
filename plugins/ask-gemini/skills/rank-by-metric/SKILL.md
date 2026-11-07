@@ -19,6 +19,12 @@ Use a different intent when:
 - There is **no metric ranking** — only attribute filters ("show me left-backs in Serie A") → `filter_players`.
 - The user wants players **similar to a named anchor** → `find_similar_players`.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## What `rankPlayersByMetric` does
 
 It builds a cohort from structured attributes (the same filter as `filterPlayers`: position, league/competition, team, nationality, age, valuation, role archetype) and then **ranks that cohort by a provider metric**, optionally filtering by per-metric `min`/`max` thresholds. Each result carries the metric value(s) it was ranked on. It is org-scoped and season-scoped (latest season with data by default).

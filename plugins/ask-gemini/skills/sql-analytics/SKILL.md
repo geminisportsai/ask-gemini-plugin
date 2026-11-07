@@ -10,6 +10,12 @@ description: >
 
 Use this skill whenever the user asks a question that requires querying the sports data warehouse -- player rankings, statistical comparisons, aggregate metrics, filtering by position or club, or any ad-hoc data lookup.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## Step 1: Discover Schema
 
 Call `getSqlSchema` to retrieve the full database schema. This returns tables, columns with data types, foreign key relationships, unique values for filterable columns, and query construction guidelines.

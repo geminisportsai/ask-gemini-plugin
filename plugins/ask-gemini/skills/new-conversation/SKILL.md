@@ -10,6 +10,12 @@ description: >
 Use this skill when the user wants to start fresh or reset the current conversation
 (e.g. "start a new conversation", "clear the chat and start over", "reset this thread").
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## What to do
 
 Respond with a short, friendly confirmation that they can start fresh, and invite

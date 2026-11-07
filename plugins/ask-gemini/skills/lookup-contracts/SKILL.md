@@ -16,6 +16,12 @@ Use a different intent when:
 - The user wants **transfer history** ("where has X played", "what did Arsenal sign") → `get_recent_transfers`.
 - The user wants the actual **transfer fee** / **payment schedule** for a specific move → still this skill, but with `documentType: TRANSFER_AGREEMENT` (see Step 4 below).
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## Step 1: Resolve the player to an ID — and verify it's the right one
 
 Call `searchPlayers` with the player's name. **Then check the top result before using it.**

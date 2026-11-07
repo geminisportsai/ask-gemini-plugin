@@ -16,6 +16,12 @@ Use a different intent when:
 - The user asks about a **contract clause** (release clause, buyback, sell-on) → `lookup_contracts`.
 - The user asks about the club's **Squad Cost Ratio**, a squad cost limit or the budget → `lookup_compliance`.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## Step 1: One call, with no arguments
 
 If `getSquadPlayersByPosition` is not among your tools, say wage rankings aren't available yet and call no other tool (never SQL).

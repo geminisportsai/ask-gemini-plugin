@@ -1,9 +1,9 @@
 {
   "name": "ask-gemini",
-  "description": "Football scouting and analytics assistant: club-scoped transfer history, player team-fit scoring, similarity search, contract clauses, watchlists, and natural-language SQL over Gemini's scouting database. Bundles the model-invoked skills for every intent alongside the remote MCP server connection.",
+  "description": "Football scouting assistant from Gemini Sports: club-scoped transfer history, player team-fit scoring, similarity search, contract clauses, watchlists, pipelines, and natural-language SQL over Gemini's scouting database. Bundles the model-invoked skills for every intent alongside the remote MCP server connection.",
   "version": "0.1.326",
   "author": {
-    "name": "Gemini Sports AI",
+    "name": "Gemini Sports",
     "url": "https://geminisports.ai"
   },
   "homepage": "https://github.com/geminisportsai/ask-gemini-plugin",

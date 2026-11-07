@@ -11,6 +11,12 @@ description: >
 
 Use this skill when the user wants a **team-style fit score** between a player and one or more teams. The fit score is on a 0–100 scale (higher = better stylistic match) and is computed server-side from manager-vector similarity over the player's actual manager history. **Do not compute the score yourself or fall back to SQL** — the math is non-trivial and the GraphQL tools below are the only correct path.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## Step 1: Resolve the player to an ID
 
 Every prompt for this intent names at least one player. Call `searchPlayers` first with the player's name to get their player ID. If the result is empty or ambiguous, tell the user you couldn't identify the player and ask for clarification — do not proceed.

@@ -1,5 +1,5 @@
 ---
-name: kanban-view
+name: pipeline-view
 description: >
   Read the user's pipelines -- who is in a pipeline or in one of its stages, how many
   players are in each stage, which stage a player is in, or which pipelines the user
@@ -10,11 +10,17 @@ description: >
 
 Use this skill when the user asks who is in a pipeline, who is in one of its stages, how many players are in each stage, which stage a player is in, or which pipelines they have. This is a read: never add, move or remove a player here.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## User-facing vocabulary
 
-"Kanban" is our internal word for these, and it appears in the tool names only. To the
-user they are **Pipelines**. Say "pipeline" in every reply — never "kanban", "kanban
-board" or "Kanban Boards". Never show a board's ID to the user; refer to it by name.
+To the user these are **Pipelines**: pipeline boards, with stages and cards. Say "pipeline" in every reply.
+Tool names say kanban; never say kanban to the user.
+Never show a board's ID to the user; refer to it by name.
 
 A pipeline's columns are its **stages**; the tools call them phases. To the user "stage" and "phase" mean the same thing.
 

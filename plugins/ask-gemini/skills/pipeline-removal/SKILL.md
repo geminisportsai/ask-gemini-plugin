@@ -1,30 +1,36 @@
 ---
-name: kanban-removal
+name: pipeline-removal
 description: >
-  Remove players from kanban scouting boards.
-  Use when the user wants to take a player off one of their kanban boards.
+  Remove players from the user's scouting pipelines.
+  Use when the user wants to take a player off one of their pipelines.
 ---
 
-# Kanban Removal
+# Pipeline Removal
 
-Use this skill when the user wants to remove a player from one of their kanban scouting boards.
+Use this skill when the user wants to remove a player from one of their scouting pipelines.
+
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
 
 ## User-facing vocabulary
 
-"Kanban" is our internal word for these, and it appears in the tool names only. To the
-user they are **Pipelines**. Say "pipeline" in every reply — never "kanban", "kanban
-board" or "Kanban Boards". Never show a board's ID to the user; refer to it by name.
+To the user these are **Pipelines**: pipeline boards, with stages and cards. Say "pipeline" in every reply.
+Tool names say kanban; never say kanban to the user.
+Never show a board's ID to the user; refer to it by name.
 
-## Step 1: List Existing Boards
+## Step 1: List Existing Pipelines
 
-Call `listMyKanbanBoards` to retrieve the user's current kanban boards, and resolve the target to **exactly one board ID** — Step 2 needs an ID, not a name. Present the pipelines to the user **by name only**.
+Call `listMyKanbanBoards` to retrieve the user's current pipelines, and resolve the target to **exactly one board ID** — Step 2 needs an ID, not a name. Present the pipelines to the user **by name only**.
 
 - User named a pipeline and it matches exactly one board → proceed with that board's ID.
 - User named one that matches several, or none → say so and ask which they mean. Do not guess.
 - User named none → ask which pipeline to remove from.
 - User already supplied an unambiguous board ID → use it directly.
 
-## Step 2: List Cards on the Target Board
+## Step 2: List Cards on the Target Pipeline
 
 Call `listKanbanCards` with the board ID to see which players are on it. Present the card list so the user can confirm which player to remove.
 
@@ -36,7 +42,7 @@ If the user has not identified a specific player from the board, use `searchPlay
 
 ## Step 4: Remove the Player
 
-Call `removePlayerFromKanban` with the player ID and board ID to remove the player from the kanban board.
+Call `removePlayerFromKanban` with the player ID and board ID to remove the player from the pipeline.
 
 ## Step 5: Confirm the Removal
 

@@ -15,6 +15,12 @@ Use a different intent when:
 - The user wants players **ranked or listed by wage** → `rank_squad_wages`; this skill reads club-level figures only and returns no per-player wage.
 - The user asks about a **contract clause** (release clause, buyback, sell-on) → `lookup_contracts`.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## Step 1: One call, with no arguments
 
 If `complianceOverview` is not among your tools, say compliance figures aren't available yet and call no other tool (never SQL).

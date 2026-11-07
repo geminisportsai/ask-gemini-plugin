@@ -11,6 +11,12 @@ description: >
 
 Use this skill when the user asks about **transfers** — a single player's transfer history, one club's signings or sales, or transfers across a whole league, by fee. This intent is distinct from `lookup_contracts` (which covers active contract clauses) and from `summarize_player` (which covers overall profile).
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## Step 0: League-wide and fee-threshold questions — `listTransfersByLeague`
 
 Check the question for these before **Step 1**:

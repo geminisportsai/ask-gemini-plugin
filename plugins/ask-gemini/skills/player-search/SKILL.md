@@ -9,6 +9,12 @@ description: >
 
 Use this skill when the user wants to find players matching specific criteria -- by name, position, team, nationality, or role archetype.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## Step 1: Determine Search Type
 
 There are two search approaches. Choose based on user intent:

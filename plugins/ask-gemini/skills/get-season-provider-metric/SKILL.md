@@ -17,6 +17,12 @@ Use a different intent when:
 - The user asks for a Gemini-computed score (GPR, GPM, VAEP, fit score) → `lookup_stat`.
 - The user wants to *rank a cohort* of players by a provider metric ("which wingers average the most take-ons/90", "top U23 AMs by npxG") → `rank_players_by_metric`.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## Step 1: Resolve the player to an ID — and verify it's the right one
 
 Call `searchPlayers` with the player's name. **Then check the top result before using it.**

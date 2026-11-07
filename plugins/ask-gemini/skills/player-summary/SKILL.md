@@ -17,6 +17,12 @@ There are two response shapes, chosen by what the user asked:
 - **General profile** ("tell me about X", "full profile on X") — data-led: bio, GPR, fit scores, valuation, contract, recent matches, plus a brief scout/notes flavor when they exist. Steps 1–6.
 - **Scouting verdict** ("what do my scouts think of X", "scouting verdict on X", "should we pursue X", "what do our notes say about X") — intelligence-led: scout reports and internal notes are the primary sources. Step 7.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## Step 1: Resolve the player to an ID
 
 Every prompt for this intent names a player. Call `searchPlayers` with the player's name first.
@@ -88,7 +94,7 @@ When you summarize what the reports on one player say, every point carries how m
 - An empty result means no visible notes for this player — say so when the user asked about notes; skip silently in a general profile.
 - Results are permission-scoped to what this user may see. Never try to read notes any other way.
 
-**Pipeline status** — optional enrichment for a general profile. Call `listMyKanbanBoards`, then `listKanbanCards` for the relevant board(s), and look for the player's card. If found, report the status as "<phase> (<board>)". If the org has no boards or the player has no card, omit status entirely — do not mention its absence. Treat both calls as best-effort: on timeout, permission error, or any backend failure, silently omit pipeline status and continue with the rest of the summary — never abort an otherwise valid player summary because of a kanban failure.
+**Pipeline status** — optional enrichment for a general profile. Call `listMyKanbanBoards`, then `listKanbanCards` for the relevant board(s), and look for the player's card. If found, report the status as "<phase> (<board>)". If the org has no boards or the player has no card, omit status entirely — do not mention its absence. Treat both calls as best-effort: on timeout, permission error, or any backend failure, silently omit pipeline status and continue with the rest of the summary — never abort an otherwise valid player summary because of a pipeline failure.
 
 ## Step 6: Present the general profile
 

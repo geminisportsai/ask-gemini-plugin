@@ -11,6 +11,12 @@ Use this skill when the user asks how many players are on a watchlist, who is on
 
 **Never answer a count or a player list from earlier messages in the conversation.** Watchlists change between turns. Call the tools below every time, even when an earlier answer in this chat already mentioned the watchlist.
 
+## Terminology
+
+- The company is Gemini Sports. Never add "Analytics" to the name.
+- Say Pipeline (pipeline boards, stages and cards), never Kanban.
+- Say football, never soccer.
+
 ## Step 1: Find the watchlist
 
 Call `listMyUserWatchlists` with `first: 50`, then page `listMyUserWatchlists` with `after: <pageInfo.endCursor>` until `pageInfo.hasNextPage` is false. `totalCount` is how many watchlists the user has. Do not decide a watchlist is missing before you have read every page.

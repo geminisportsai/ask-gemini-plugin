@@ -1,9 +1,9 @@
 # ask-gemini (Claude plugin)
 
-Football scouting & analytics assistant: bundles the model-invoked skills for
-every Ask Gemini intent plus the remote MCP server connection. Installs in
-**Claude Code** today; **Cowork** support is blocked by an upstream bug (see
-below).
+Football scouting assistant from Gemini Sports: bundles the model-invoked
+skills for every Ask Gemini intent plus the remote MCP server connection.
+Installs in **Claude Code** today; **Cowork** support is blocked by an upstream
+bug (see below).
 
 ## Install
 
