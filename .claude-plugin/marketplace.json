@@ -9,7 +9,7 @@
     {
       "name": "ask-gemini",
       "source": "./plugins/ask-gemini",
-      "description": "Football scouting skills + remote MCP server connection. Override the MCP endpoint with ASK_GEMINI_MCP_URL (defaults to production).",
+      "description": "Football scouting skills + remote MCP server connection. Override the MCP endpoint with ASK_GEMINI_MCP_URL (defaults to the staging MCP).",
       "category": "productivity"
     }
   ]
