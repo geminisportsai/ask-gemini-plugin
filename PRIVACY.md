@@ -2,7 +2,7 @@
 
 Last updated: November 7, 2026
 
-This section covers the Gemini Sports plugin for Claude and the Gemini Sports MCP connector it uses (together, the "Connector"), provided by Gemini Sports Inc. It explains what data the Connector handles, who else receives it, how long we keep it, and what choices you have. For how the Connector works and how to install it, see [Gemini Sports for Claude](README.md).
+This policy covers the Gemini Sports plugin for Claude and the Gemini Sports MCP connector it uses (together, the "Connector"), provided by Gemini Sports Inc. It explains what data the Connector handles, who else receives it, how long we keep it, and what choices you have. For how the Connector works and how to install it, see [Gemini Sports for Claude](README.md).
 
 ## 1. Who the Connector Is For
 
@@ -49,4 +49,4 @@ You can disconnect the Connector in Claude at any time, which stops further tool
 
 ## 8. Contact
 
-For questions about the Connector or this section, contact [cody@geminisports.ai](mailto:cody@geminisports.ai).
+For questions about the Connector or this policy, contact [cody@geminisports.ai](mailto:cody@geminisports.ai).
