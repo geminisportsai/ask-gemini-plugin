@@ -49,4 +49,4 @@ You can disconnect the Connector in Claude at any time, which stops further tool
 
 ## 8. Contact
 
-For questions about the Connector or this policy, contact [cody@geminisports.ai](mailto:cody@geminisports.ai).
+For questions about the Connector or this policy, contact [support@geminisports.ai](mailto:support@geminisports.ai).
