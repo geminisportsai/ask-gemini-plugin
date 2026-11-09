@@ -41,8 +41,6 @@ Where data goes:
 1. **The Gemini Sports MCP server**, `https://gql.geminisports.io/mcp`. This is the only destination for tool calls.
 2. **Gemini Sports sign-in (OAuth)**, Gemini Sports' sign-in service, at `https://gql.geminisports.io`, used only when you sign in or your session is refreshed. The SMS code is sent by Gemini Sports' sign-in service through Amazon Web Services (Amazon Simple Notification Service).
 
-If you set the `ASK_GEMINI_MCP_URL` environment variable before starting Claude, tool calls go to that URL instead, and sign-in uses whatever sign-in service that server advertises.
-
 What is sent:
 
 - Your access token with each request.
@@ -63,4 +61,4 @@ How Gemini Sports keeps and logs requests: Gemini Sports keeps request logs for 
 
 ## Support
 
-Email cody@geminisports.ai or visit https://github.com/geminisportsai/ask-gemini-plugin#readme.
+Email support@geminisports.ai or visit https://github.com/geminisportsai/ask-gemini-plugin#readme.

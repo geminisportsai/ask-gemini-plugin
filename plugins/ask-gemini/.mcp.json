@@ -2,7 +2,10 @@
   "mcpServers": {
     "ask-gemini": {
       "type": "http",
-      "url": "${ASK_GEMINI_MCP_URL:-https://gql.geminisports.io/mcp}"
+      "url": "https://gql.geminisports.io/mcp",
+      "oauth": {
+        "authServerMetadataUrl": "https://gql.geminisports.io/.well-known/oauth-authorization-server"
+      }
     }
   }
 }
