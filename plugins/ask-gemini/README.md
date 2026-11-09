@@ -51,7 +51,7 @@ What comes back: the player, team, match, report, watchlist and board informatio
 
 What is not sent: the plugin does not read your local files, your other connectors or the rest of your Claude conversation. Only the inputs to each tool call leave Claude for Gemini Sports.
 
-How Gemini Sports keeps and logs requests: Gemini Sports keeps request logs for up to 12 months, with identifiers masked, to run, secure and troubleshoot the service. See the Gemini Sports for Claude privacy policy at https://github.com/geminisportsai/ask-gemini-plugin/blob/main/PRIVACY.md.
+How Gemini Sports keeps and logs requests: Gemini Sports keeps request logs for up to 12 months, with identifiers masked, to run, secure and troubleshoot the service. See the Gemini Sports for Claude privacy policy at https://github.com/geminisportsai/ask-gemini-plugin/blob/main/PRIVACY.md
 
 ## Good to know
 
@@ -61,4 +61,4 @@ How Gemini Sports keeps and logs requests: Gemini Sports keeps request logs for 
 
 ## Support
 
-Email support@geminisports.ai or visit https://github.com/geminisportsai/ask-gemini-plugin#readme.
+Email support@geminisports.ai, or see the README at https://github.com/geminisportsai/ask-gemini-plugin#readme
