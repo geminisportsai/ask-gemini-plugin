@@ -176,7 +176,7 @@ sign-in service that server advertises.
 
 ## Support
 
-Email [cody@geminisports.ai](mailto:cody@geminisports.ai).
+Email [support@geminisports.ai](mailto:support@geminisports.ai).
 
 ## License
 
