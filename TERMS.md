@@ -61,7 +61,7 @@ You can stop at any time by disconnecting the Connector in your assistant. Acces
 
 ## 13. Governing Law
 
-These terms are governed by the laws of [CONFIRM: state or country], without regard to conflict-of-laws rules, except where your club agreement or applicable law requires otherwise.
+These terms are governed by the laws of the State of Florida, United States, without regard to conflict-of-laws rules, except where your club agreement or applicable law requires otherwise.
 
 ## 14. Contact
 
