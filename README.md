@@ -156,17 +156,8 @@ to run, secure and troubleshoot the service. See the
 
 ## MCP endpoint
 
-The plugin connects to the Gemini Sports MCP server. Its exact host is listed
-in the Data flows of [plugins/ask-gemini/README.md](plugins/ask-gemini/README.md).
-Override it for another environment by setting `ASK_GEMINI_MCP_URL` before
-launching Claude Code, e.g.:
-
-```
-ASK_GEMINI_MCP_URL=https://<your-mcp-host>/mcp
-```
-
-If you set it, tool calls go to that URL instead, and sign-in uses whatever
-sign-in service that server advertises.
+The plugin connects to the Gemini Sports MCP server at a fixed address. Its exact host
+is listed in the Data flows of [plugins/ask-gemini/README.md](plugins/ask-gemini/README.md).
 
 ## Good to know
 
