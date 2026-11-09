@@ -162,7 +162,7 @@ Override it for another environment by setting `ASK_GEMINI_MCP_URL` before
 launching Claude Code, e.g.:
 
 ```
-ASK_GEMINI_MCP_URL=https://gql.dev.geminisports.io/mcp   # dev
+ASK_GEMINI_MCP_URL=https://<your-mcp-host>/mcp
 ```
 
 If you set it, tool calls go to that URL instead, and sign-in uses whatever
