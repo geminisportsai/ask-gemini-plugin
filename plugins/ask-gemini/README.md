@@ -38,8 +38,8 @@ This plugin contains instructions (skills) and a connection setting only. It run
 
 Where data goes:
 
-1. **The Gemini Sports MCP server**, `https://gql.staging.geminisports.io/mcp`. This is the only destination for tool calls.
-2. **Gemini Sports sign-in (OAuth)**, Gemini Sports' sign-in service, hosted on AWS, at `https://eojlfn3czf.execute-api.us-east-1.amazonaws.com`, used only when you sign in or your session is refreshed. The SMS code is sent by Gemini Sports' sign-in service through Amazon Web Services (Amazon Simple Notification Service).
+1. **The Gemini Sports MCP server**, `https://gql.geminisports.io/mcp`. This is the only destination for tool calls.
+2. **Gemini Sports sign-in (OAuth)**, Gemini Sports' sign-in service, at `https://gql.geminisports.io`, used only when you sign in or your session is refreshed. The SMS code is sent by Gemini Sports' sign-in service through Amazon Web Services (Amazon Simple Notification Service).
 
 If you set the `ASK_GEMINI_MCP_URL` environment variable before starting Claude, tool calls go to that URL instead, and sign-in uses whatever sign-in service that server advertises.
 

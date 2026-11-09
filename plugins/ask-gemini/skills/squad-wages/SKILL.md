@@ -87,7 +87,7 @@ For a short list, never write "top N", "top 9" or "the N highest" anywhere in th
 
 `position` is a side-specific code (the live codes include LCB, RCB, LDM, RCM, CAM and RCF). Group the codes with this map:
 
-<!-- Backend twin: backend-v2 `src/mcp-server/execution/squad-wage-counts.ts`, `SQUAD_POSITION_GROUPS`, groups positions the same way to compute `positionGroupCounts` (SE-8854). This map, its role-letter fallback and that constant must change in lockstep, or the quoted group counts stop matching the groups listed here. -->
+<!-- Backend twin: backend-v2 `src/mcp-server/execution/squad-wage-counts.ts`, `SQUAD_POSITION_GROUPS`, groups positions the same way to compute `positionGroupCounts`. This map, its role-letter fallback and that constant must change in lockstep, or the quoted group counts stop matching the groups listed here. -->
 
 - Goalkeepers: GK
 - Defenders: LB, RB, LCB, CB, RCB, LWB, RWB
